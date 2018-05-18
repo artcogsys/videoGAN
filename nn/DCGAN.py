@@ -14,12 +14,21 @@ import chainer.links as L
 import numpy as np
 
 
-def convolution3d(in_channel, out_channel, weights, k_size=(4,4,4), stride=(2,2,2), direction='forward'):
+# TODO Look for which convolution layer normalization is applied and if ReLu or PReLu should be used!
+# TODO The batch size is not a single video, but a collection of videos (e.g. size 64 = 64 videos of 64,64,32,3)
+        # These are then called minibatches - Give minibatches to discrim in block not randomized order
+# TODO Implement critic iterations of gen and disc update intervals!
+# TODO Final check if Discrim. propagates in last layer to 512 or 1 feature channel!
+# TODO Implement dropout!
+# TODO See if add noise to input and then decay over time?
+
+
+def convolution3d(in_channel, out_channel, weights, k_size=(4,4,4), stride=(2,2,2), pad=1, direction='forward'):
     """ Convolutions - A convolutional block consists of: (n_dim, in_channel, out_channel, ksize, stride).
     n_dim is set to 3 for 3D videos. Depending on the direction, each convolution propagates from the dimension of
     the input channel to the output channel"""
     if direction == 'forward':
-        return L.ConvolutionND(3, in_channel, out_channel, k_size, stride, initialW=weights)
+        return L.ConvolutionND(3, in_channel, out_channel, k_size, stride, pad=pad, initialW=weights)
     elif direction == 'backward':
         return L.DeconvolutionND(3, in_channel, out_channel, k_size, stride, initialW=weights)
     else:
@@ -29,11 +38,13 @@ def convolution3d(in_channel, out_channel, weights, k_size=(4,4,4), stride=(2,2,
 class VideoGenerator(chainer.Chain):
     """ A video generator consists of: ..."""
 
-    def __init__(self, batch_size=64, frame_size=32, latent_dim=100, w_scale=.001):
+    def __init__(self, batch_size=3, frame_size=64, n_frames=32, latent_dim=100, w_scale=.001):
         super(VideoGenerator, self).__init__()
         self.batch_size = batch_size
         self.frame_size = frame_size
+        self.n_frames = n_frames
         self.latent_dim = latent_dim
+        self.w_scale = w_scale
 
 
 # TODO It is important that biases are initialized with 0 - Krazwald adds trainable bias (how?)
@@ -42,92 +53,103 @@ class Discriminator(VideoGenerator):
     give good gradient information onto the generator. Therefore using softmax to connect to acutal choice probabilities
     is omitted """
 
-    def __init__(self, channels=64):
+    def __init__(self, ch = 64):
 
         # Initial channel is the number of feature channels in the first convolutional layer.
-        self.channels = channels
+        self.ch = ch
+        super(Discriminator, self).__init__()
 
         # Initialize weights with HeNormal Distribution and scale inherited from <class> VideoGenerator
-        self.w = chainer.initializers.HeNormal(self.weight_scale)
-        super(Discriminator, self).__init__()
+        self.w = chainer.initializers.HeNormal(self.w_scale)
 
         with self.init_scope():
 
             """ Convolutions - The first convolutional layer has three input dimensions (RGB) and propagates forward to 
-            the given intial number of channels in the first layer. Each convolution to higher layer doubles the amount
-            of channels, such that the last convolutional layer has eight times more channels (for five layers). 
-            Pass initial weights drawn from HeNormal for every convolutional layers"""
-            self.conv1 = convolution3d(3, channels, self.w)
-            self.conv2 = convolution3d(channels, channels * 2, self.w)
-            self.conv3 = convolution3d(channels * 2, channels * 4, self.w)
-            self.conv4 = convolution3d(channels * 4, channels * 8, self.w)
-            self.conv5 = convolution3d(channels * 8, 1, self.w) # TODO Check if propagates to 1 or 512!
+            the given intial number of feature channels in the first hidden layer. With each subsequent convolution the
+            amount of channels is doubled (512 in last hidden layer). 
+            See http://carlvondrick.com/tinyvideo/discriminator.png for a visualization of tensor sizes with increasing
+            layer order """
+
+            self.conv1 = convolution3d(3, ch, self.w) # (
+            self.conv2 = convolution3d(ch, ch * 2, self.w)
+            self.conv3 = convolution3d(ch * 2, ch * 4, self.w)
+            self.conv4 = convolution3d(ch * 4, ch * 8, self.w)
+
+            # Convolute from 4x4x2 to 1x1x1 tensor in the last layerby changing the kernel size and removing the padding
+            self.conv5 = convolution3d(ch * 8, 1, self.w, k_size=(4,4,2), pad=0)
 
             """ Linear Block - Fully connected, takes input from last convolutional layer """
             self.linear5 = L.Linear(1, 1, initialW=self.w)
 
-            """ Layer normalizations instead of batch normalizationm for every convolutional layer except for last one.
-            For details see: Kratzwald et al."""
-            self.layer_norm1 = L.LayerNormalization(channels)
-            self.layer_norm2 = L.LayerNormalization(channels * 2)
-            self.layer_norm3 = L.LayerNormalization(channels * 4)
-            self.layer_norm4 = L.LayerNormalization(channels * 8)
-
     def __call__(self, input):
-        """ Procedure: Convolute forward from each hidden unit, layer normalization and then activate (no pooling!).
-        The return Variable from theforward computation __call_ has backward() method to compute its gradients
-        afterwards!"""
-
-        # TODO Look for which convolution layer normalization is applied and if ReLu or PReLu should be used! Should we
-        # add noise on input? e.g. leakyrelu(self.conv(add_noise(x))" - PreLu available as function in chainer
+        """ Procedure: Convolute forward from each hidden unit amd then activate (no pooling!).
+        
+        input shape: (batch size, 3(RGB), 64, 64, 32)
+        return shape: (batch size, 1)
+        """
         hidden1 = F.leaky_relu(self.conv1(input))
-        hidden2 = F.leaky_relu(self.layer_norm1(self.conv2(hidden1)))
-        hidden3 = F.leaky_relu(self.layer_norm2(self.conv3(hidden2)))
-        hidden4 = F.leaky_relu(self.layer_norm3(self.conv4(hidden3)))
-        hidden5 = F.leaky_relu(self.layer_norm4(self.conv5(hidden4)))
+        hidden2 = F.leaky_relu(self.conv2(hidden1))
+        hidden3 = F.leaky_relu(self.conv3(hidden2))
+        hidden4 = F.leaky_relu(self.conv4(hidden3))
+        hidden5 = F.leaky_relu(self.conv5(hidden4))
         return self.linear5(hidden5)
 
 
-# TODO Check if latent_z is passed or just the dimension of it, which can be obtained from superclass!
 class Generator(VideoGenerator):
 
-    def __init__(self, latent_z, ch=512):
+    def __init__(self, ch = 512):
+
+        self.ch = ch
         super(Generator, self).__init__()
-        self.latent_z = latent_z
-        self.ch = ch # Amnount of feature channels in the first layer
-        self.w = chainer.initializers.HeNormal(self.weight_scale)
+        self.w = chainer.initializers.HeNormal(self.w_scale)
+        self.up_sample_dim = tuple([ch, 4, 4, 2])
 
         with self.init_scope():
 
             """ Linear Block. Linearly up sample latent space to first hidden layer in four-dimensional space producing
-            a feature space of size (4,4,2,512) """
-            up_sample = (4 * 4 * 2 * ch) # TODO Change to constants
-            self.linear1 = L.Linear(latent_z, up_sample)
+            a feature space of size (512, 4, 4, 2).
+            For an overview, please see: http://carlvondrick.com/tinyvideo/network.png"""
+            self.linear1 = L.Linear(self.latent_dim, np.prod(self.up_sample_dim), initialW = self.w)
 
-            """ Convolutions. Perform a series of four fractionally-strided convolutions which map to 256,128,64,and 3
-            feature channels, producing a video of size(64,64,32,3)"""
-            self.deconv1 = convolution3d(ch, ch // 2, weights=self.w, direction='backward') # tensor=(8,8,4,256)
-            self.deconv2 = convolution3d(ch // 2, ch // 4, weights=self.w, direction='backward') # tensor=(16,16,8,128)
-            self.deconv3 = convolution3d(ch // 4, ch // 8, weights=self.w, direction='backward') # tensor=(32,32,16,64)
-            self.deconv4 = convolution3d(ch // 8, 3, weights=self.w, direction='backward') # tensor = (64,64,32,3)
+            """ Convolutions. Perform a series of four fractionally-strided convolutions which map to 256,128,64,3
+            feature channels, producing of video of size(64,64,32,3) """
+            self.deconv1 = convolution3d(ch, ch // 2, weights = self.w, direction = 'backward')
+            self.deconv2 = convolution3d(ch // 2, ch // 4, weights = self.w, direction = 'backward')
+            self.deconv3 = convolution3d(ch // 4, ch // 8, weights = self.w, direction = 'backward')
+            self.deconv4 = convolution3d(ch // 8, 3, weights = self.w, direction = 'backward')
 
-            """ Batch normalizations (Batch for Generator, Layer for Discriminator). All but last layer!"""
-            self.batch_norm1 = L.BatchNormalization(ch)
+            """ Batch normalizations for all layers except last one """
+            self.batch_norm1 = L.BatchNormalization(np.prod(self.up_sample_dim))
             self.batch_norm2 = L.BatchNormalization(ch // 2)
             self.batch_norm3 = L.BatchNormalization(ch // 4)
             self.batch_norm4 = L.BatchNormalization(ch // 8)
 
-    def __call__(self):
-        # TODO Check if relu activation has specific slope specifed for convergence (e.g. .02 Kratzwald)?
-        hidden1 = F.leaky_relu(self.batch_norm1(self.linear1(self.latent_z)))
+    def __call__(self, latent_z):
+        """
+            input shape: (batch size, 100)
+            return shape: (batch size, 3, 64, 64, 32) - A full video is produced from a 1D noise input!
+        """
+        hidden1 = F.leaky_relu(self.batch_norm1(self.linear1(latent_z)))
+        hidden1 = F.reshape(hidden1, tuple([self.batch_size]) + self.up_sample_dim)
         hidden2 = F.leaky_relu(self.batch_norm2(self.deconv1(hidden1)))
         hidden3 = F.leaky_relu(self.batch_norm3(self.deconv2(hidden2)))
         hidden4 = F.leaky_relu(self.batch_norm4(self.deconv3(hidden3)))
 
-        return F.tanh(hidden4) # Last layer has tanh activation instead of leaky relu!
+        # Use hyperbolic tanget function in last layer to normalize generated vids from -1 to 1 (same as training vids)
+        return F.tanh(hidden4)
 
     def sample_hidden(self):
-        # TODO Implement cupy differentiation!
-        """ Sample latent space from a spherical uniform distribution """
+        """ Sample latent space from a spherical uniform distribution.
+        For details please see: https://github.com/dribnet/plat """
         z_layer = np.random.uniform(-1, 1, (self.batch_size, self.latent_dim)).astype(np.float32)
         return F.normalize(z_layer)
+
+
+""" For debugging
+gen = Generator()
+latent_z = gen.sample_hidden()
+b_gen= gen(latent_z)
+disc = Discriminator()
+inp = chainer.Variable(np.random.random_integers(1,255,(3,3,64,64,32)).astype(np.float32))
+fake = disc(inp)
+"""
