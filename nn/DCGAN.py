@@ -38,14 +38,23 @@ def convolution3d(in_channel, out_channel, weights, k_size=(4,4,4), stride=(2,2,
 class VideoGenerator(chainer.Chain):
     """ A video generator consists of: ..."""
 
-    def __init__(self, batch_size=3, frame_size=64, n_frames=32, latent_dim=100, w_scale=.001):
+    def __init__(self, *args, **kwargs):
         super(VideoGenerator, self).__init__()
-        self.batch_size = batch_size
-        self.frame_size = frame_size
-        self.n_frames = n_frames
-        self.latent_dim = latent_dim
-        self.w_scale = w_scale
+        self.batch_size = kwargs.pop('batch_size')
+        self.latent_dim = kwargs.pop('latent_dim')
+        self.frame_size = kwargs.pop('frame_size')
+        self.weight_scale = kwargs.pop('weight_scale')
+        self.crop_size = kwargs.pop('crop_size')
 
+        # Create instances of generator and discriminator and store them as attributes
+        self.generator = Generator(self.latent_dim)
+        self.discriminator = Discriminator()
+
+    def get_discriminator(self):
+        return self.discriminator
+
+    def get_generator(self):
+        return self.discriminator
 
 # TODO It is important that biases are initialized with 0 - Krazwald adds trainable bias (how?)
 class Discriminator(VideoGenerator):
@@ -60,7 +69,7 @@ class Discriminator(VideoGenerator):
         super(Discriminator, self).__init__()
 
         # Initialize weights with HeNormal Distribution and scale inherited from <class> VideoGenerator
-        self.w = chainer.initializers.HeNormal(self.w_scale)
+        self.w = chainer.initializers.HeNormal(self.weight_scale)
 
         with self.init_scope():
 
@@ -145,11 +154,15 @@ class Generator(VideoGenerator):
         return F.normalize(z_layer)
 
 
-""" For debugging
+'''
+#For debugging
 gen = Generator()
 latent_z = gen.sample_hidden()
 b_gen= gen(latent_z)
+
 disc = Discriminator()
-inp = chainer.Variable(np.random.random_integers(1,255,(3,3,64,64,32)).astype(np.float32))
+inp = chainer.Variable(np.random.random_integers(1,255,(1,3,64,64,32)).astype(np.float32))
 fake = disc(inp)
-"""
+a=5
+
+'''
