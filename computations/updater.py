@@ -20,7 +20,7 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         self.generator, self.discriminator = kwargs.pop('models')
         super(GANUpdater, self).__init__(*args, **kwargs)
         self.iterator = kwargs.pop('iterator')
-        self.optimizers = kwargs.pop('optimizers')
+        self.optimizers = kwargs.pop('optimizer')
         self.critic_iter = kwargs.pop('critic_iter') # Number of critic iterations
 
     def update_core(self):
@@ -33,62 +33,72 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         discriminator_opt = self.get_optimizer('discriminator')
         current_batch = self.get_iterator('iter').next()
 
-        # Get batch size
-        batch_size = np.size(current_batch, 1)
+        for i in range(self.critic_iter):
 
-        # Feed current batch into discriminator and determine if fake or real
-        disc_real = self.discriminator(current_batch)
+            # Feed current batch into discriminator and determine if fake or real
+            disc_real = self.discriminator(current_batch)
 
-        # Feed 100-dimensional z-space into generator and produce a video
-        latent_z = self.generator.sample_hidden
-        gen_fake = self.generator(latent_z)
+            # Feed 100-dimensional z-space into generator and produce a video
+            latent_z = self.generator.sample_hidden
+            gen_fake = self.generator(latent_z)
 
-        # Feed generated image into discriminator and determine if fake or real
-        disc_fake = self.discriminator(gen_fake)
+            # Feed generated image into discriminator and determine if fake or real
+            disc_fake = self.discriminator(gen_fake)
 
-        # TODO: Update the discriminator and generator with gradient info here! -Only works with correct loss function!
-        discriminator_opt.update(self._discriminator_loss, disc_real, disc_fake)
-        generator_opt.update(self._generator_loss(), disc_fake)
+            # TODO: Update the discriminator and generator with gradient info here! -Only works with correct loss function!
+            # The generator is updated once every <attrbiute> critic_iter of discriminator updatesr
+            # with using_config('enable_backprop', False): Include?
+            if i == 0:
+                discriminator_opt.update(self.discriminator_loss, disc_real, disc_fake)
+
+            generator_opt.update(self.generator_loss, disc_fake)
 
 
     """ Define loss functions for Generator and Discriminator"""
     @staticmethod
     def generator_loss(generator, fake_video):
-        """ Calculate the loss function here for adam optimization! Difficult part! """
 
         # TODO Either attach a trainer here (planned) or I have to clear the grads and update manually! MAKE COMMENTS!
         batch_size = len(fake_video)
         gen_loss = F.sum(- fake_video) / batch_size
-        chainer.report({'gen_loss': gen_loss}, generator)
+        chainer.report({'generator_loss': gen_loss}, generator)
         return gen_loss
 
     @staticmethod
-    def discriminator_loss(discriminator, real_video, fake_video, critic_iter):
-        """Code taken from: https://github.com/mr4msm/wgan_gp_chainer/blob/master/train_wgan_gp.py """
+    def discriminator_loss(discriminator, real_video, fake_video, penalty_coef = 10):
+        """ For details please see the algorithm on page 4 (line 4-8) and the corresponding equation (3) of the
+        gradient penalty on: https://arxiv.org/abs/1704.00028 """
 
-        def _l2norm(var):
-            if var.ndim > 1:
-                if np.asarray(var.shape[1:]).prod() > 1:
-                    return F.sqrt(F.sum(var * var, axis=tuple(range(1, var.ndim))))
-                else:
-                    var = F.reshape(var, (-1,))
+        def _l2norm(vec):
+            # Calculate the l2norm (or euclidean norm), which is the (absolute) square root of squared summed inputs
+            if vec.ndim > 1:
+                # Add epsilon to avoid problems of square root derivative close to zero. Since f(x + epsilon) = f(x),
+                # it follows that f(x + epsilon) - f(x) = 0
+                vec = F.sqrt(F.sum(vec * vec, dim = 1), + 1e-12)
+            return abs(vec)
 
-            return abs(var)
+        """ The loss of the discriminator network enforces the Lipschitz-constraint on the critic loss, by interpolating
+        a real and a fake video tbc."""
 
-        # Get loss of discriminator network
         batch_size = len(fake_video)
-        disc_loss= F.sum(fake_video) - F.sum(real_video)
+        epsilon = Variable(np.random.uniform(low=0, high=1, size=(batch_size,1)).astype(np.float32))
 
-        # Add gradient penalty to loss
-        alpha = np.random.uniform(low= 0., high= 1., size=((batch_size,) + (1,) * (real_video.ndim - 1))).astype('float32')
-        interpolates = Variable((1. - alpha) * real_video.data + alpha * fake_video.data)
-        gradients = chainer.grad([discriminator(interpolates)],
-                                 [interpolates],
-                                 enable_double_backprop=True)[0]
+        # Interpolation creates new data points within range of discrite data points
+        interpolates = (1. - epsilon) * real_video.data + epsilon * fake_video.data
+
+        # Feed interpolated sample into discriminator and compute gradients
+        # ∇x_hat * Discriminator(x_hat)
+        gradients = chainer.grad([discriminator(interpolates)], [interpolates], enable_double_backprop=True)[0]
         slopes = _l2norm(gradients)
 
-        gradient_penalty = critic_iter * F.sum((slopes - 1.) * (slopes - 1.))
-        disc_loss = (disc_loss + gradient_penalty) / batch_size
+        # Penalty coefficient is a hyperparameter, where 10 was found to be working best
+        gradient_penalty = penalty_coef * (slopes - 1.) ** 2
+
+        # Calculate the discriminator loss by enforcing the gradient penalty on the summed difference of real and fake
+        # videos
+        disc_loss= F.sum(fake_video) - F.sum(real_video)
+        disc_loss = disc_loss + gradient_penalty # Some have divided by batch size here, why?
+
+        chainer.report({'discriminator_loss': disc_loss}, discriminator)
 
         return disc_loss
-
