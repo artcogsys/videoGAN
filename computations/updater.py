@@ -17,21 +17,22 @@ What has to be done:
 class GANUpdater(chainer.training.updaters.StandardUpdater):
 
     def __init__(self, *args, **kwargs):
+        # Pop information not accepted by superclass constructor
         self.generator, self.discriminator = kwargs.pop('models')
+        self.critic_iter = kwargs.pop('critic_iter')  # Number of critic iterations (5 in paper!)
+        self.penalty_coeff = kwargs.pop('penalty_coeff')
         super(GANUpdater, self).__init__(*args, **kwargs)
         self.iterator = kwargs.pop('iterator')
         self.optimizers = kwargs.pop('optimizer')
-        self.critic_iter = kwargs.pop('critic_iter') # Number of critic iterations
+
 
     def update_core(self):
 
-        # TODO- Include n_dis that differentiates the updating iteration between iterator and discriminator!
-        # In paper the critic network is optimized 5 times!! every discriminator update!
-
         # Get all models from  Standardupdater after passing at initialization
-        generator_opt = self.get_optimizer('generator') # Get generator optimizer from superclass
-        discriminator_opt = self.get_optimizer('discriminator')
-        current_batch = self.get_iterator('iter').next()
+        generator_opt = self.get_optimizer('gen-opt') # Get generator optimizer from superclass
+        discriminator_opt = self.get_optimizer('disc-opt')
+        current_batch = np.asarray(self.get_iterator('main').next())
+
 
         for i in range(self.critic_iter):
 
@@ -39,33 +40,33 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
             disc_real = self.discriminator(current_batch)
 
             # Feed 100-dimensional z-space into generator and produce a video
-            latent_z = self.generator.sample_hidden
+            latent_z = self.generator.sample_hidden()
             gen_fake = self.generator(latent_z)
 
             # Feed generated image into discriminator and determine if fake or real
             disc_fake = self.discriminator(gen_fake)
 
             # TODO: Update the discriminator and generator with gradient info here! -Only works with correct loss function!
-            # The generator is updated once every <attrbiute> critic_iter of discriminator updatesr
-            # with using_config('enable_backprop', False): Include?
+            # TODO: with using_config('enable_backprop', False): Include?
+            # The generator is updated once every <attrbiute> critic_iter of discriminator updater. The function
+            # optimizer.update clears the gradients and computes backwards gradients to update parameters!
+            # Perform clearing of gradients and forward / backward computations by calling update method of optimizer
+            # ' batch = self._iterators['main'].next()' This is also called in updaterm but it is outside for loop,
+            # pay attention though
             if i == 0:
-                discriminator_opt.update(self.discriminator_loss, disc_real, disc_fake)
+                generator_opt.update(self.generator_loss, disc_fake)
 
-            generator_opt.update(self.generator_loss, disc_fake)
+            discriminator_opt.update(self.discriminator_loss, disc_real, disc_fake, self.penalty_coeff)
 
 
-    """ Define loss functions for Generator and Discriminator"""
-    @staticmethod
-    def generator_loss(generator, fake_video):
-
-        # TODO Either attach a trainer here (planned) or I have to clear the grads and update manually! MAKE COMMENTS!
+    def generator_loss(self, generator, fake_video):
         batch_size = len(fake_video)
         gen_loss = F.sum(- fake_video) / batch_size
         chainer.report({'generator_loss': gen_loss}, generator)
         return gen_loss
 
-    @staticmethod
-    def discriminator_loss(discriminator, real_video, fake_video, penalty_coef = 10):
+
+    def discriminator_loss(self, discriminator, real_video, fake_video, penalty_coef = 10):
         """ For details please see the algorithm on page 4 (line 4-8) and the corresponding equation (3) of the
         gradient penalty on: https://arxiv.org/abs/1704.00028 """
 
@@ -96,8 +97,8 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
 
         # Calculate the discriminator loss by enforcing the gradient penalty on the summed difference of real and fake
         # videos
-        disc_loss= F.sum(fake_video) - F.sum(real_video)
-        disc_loss = disc_loss + gradient_penalty # Some have divided by batch size here, why?
+        disc_loss= F.sum(fake_video) - F.sum(real_video) + gradient_penalty
+        disc_loss /= batch_size # Divide by batch size (why?)
 
         chainer.report({'discriminator_loss': disc_loss}, discriminator)
 
