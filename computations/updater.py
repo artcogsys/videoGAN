@@ -19,8 +19,9 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
     def __init__(self, *args, **kwargs):
         # Pop information not accepted by superclass constructor
         self.generator, self.discriminator = kwargs.pop('models')
-        self.critic_iter = kwargs.pop('critic_iter')  # Number of critic iterations (5 in paper!)
-        self.penalty_coeff = kwargs.pop('penalty_coeff')
+        self.critic_iter = kwargs.pop('critic_iter', 5)
+        self.penalty_coeff = kwargs.pop('penalty_coeff', 10)
+
         super(GANUpdater, self).__init__(*args, **kwargs)
         self.iterator = kwargs.pop('iterator')
         self.optimizers = kwargs.pop('optimizer')
@@ -33,9 +34,9 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         discriminator_opt = self.get_optimizer('disc-opt')
         current_batch = np.asarray(self.get_iterator('main').next())
 
-
         for i in range(self.critic_iter):
 
+            print(np.shape(current_batch))
             # Feed current batch into discriminator and determine if fake or real
             disc_real = self.discriminator(current_batch)
 

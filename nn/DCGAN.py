@@ -21,6 +21,7 @@ import numpy as np
 # TODO Final check if Discrim. propagates in last layer to 512 or 1 feature channel!
 # TODO Implement dropout!
 # TODO See if add noise to input and then decay over time?
+# TODO It is important that biases are initialized with 0 - Krazwald adds trainable bias (how?)!!!!!!!
 
 
 def convolution3d(in_channel, out_channel, weights, k_size=(4,4,4), stride=(2,2,2), pad=1, direction='forward'):
@@ -38,35 +39,25 @@ def convolution3d(in_channel, out_channel, weights, k_size=(4,4,4), stride=(2,2,
 class VideoGenerator(chainer.Chain):
     """ A video generator consists of: ..."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         super(VideoGenerator, self).__init__()
-        self.batch_size = kwargs.pop('batch_size')
-        self.latent_dim = kwargs.pop('latent_dim')
-        self.frame_size = kwargs.pop('frame_size')
-        self.weight_scale = kwargs.pop('weight_scale')
-        self.crop_size = kwargs.pop('crop_size')
+        self.batch_size = kwargs.get('batch_size', 64)
+        self.latent_dim = kwargs.get('latent_dim', 100)
+        self.frame_size = kwargs.get('frame_size', 32)
+        self.weight_scale = kwargs.get('weight_scale', .001)
+        self.crop_size = kwargs.get('crop_size', 64)
 
-        # Create instances of generator and discriminator and store them as attributes
-        self.generator = Generator(self.latent_dim)
-        self.discriminator = Discriminator()
 
-    def get_discriminator(self):
-        return self.discriminator
-
-    def get_generator(self):
-        return self.discriminator
-
-# TODO It is important that biases are initialized with 0 - Krazwald adds trainable bias (how?)
 class Discriminator(VideoGenerator):
     """ The discriminator is in this case a critic network, since it is not trained to classify but only to
     give good gradient information onto the generator. Therefore using softmax to connect to acutal choice probabilities
     is omitted """
 
-    def __init__(self, ch = 64):
+    def __init__(self, ch = 64, **kwargs):
 
         # Initial channel is the number of feature channels in the first convolutional layer.
         self.ch = ch
-        super(Discriminator, self).__init__()
+        super(Discriminator, self).__init__(**kwargs)
 
         # Initialize weights with HeNormal Distribution and scale inherited from <class> VideoGenerator
         self.w = chainer.initializers.HeNormal(self.weight_scale)
@@ -106,11 +97,11 @@ class Discriminator(VideoGenerator):
 
 class Generator(VideoGenerator):
 
-    def __init__(self, ch = 512):
+    def __init__(self, ch = 512, **kwargs):
 
         self.ch = ch
-        super(Generator, self).__init__()
-        self.w = chainer.initializers.HeNormal(self.w_scale)
+        super(Generator, self).__init__(**kwargs)
+        self.w = chainer.initializers.HeNormal(self.weight_scale)
         self.up_sample_dim = tuple([ch, 4, 4, 2])
 
         with self.init_scope():
@@ -154,15 +145,12 @@ class Generator(VideoGenerator):
         return F.normalize(z_layer)
 
 
-'''
-#For debugging
-gen = Generator()
-latent_z = gen.sample_hidden()
-b_gen= gen(latent_z)
 
-disc = Discriminator()
-inp = chainer.Variable(np.random.random_integers(1,255,(1,3,64,64,32)).astype(np.float32))
-fake = disc(inp)
-a=5
+#gen = Generator()
+#latent_z = gen.sample_hidden()
+#b_gen= gen(latent_z)
 
-'''
+#disc = Discriminator()
+#inp = np.random.random_integers(1,255,(1,3,64,64,32)).astype(np.float32)
+#fake = disc(inp)
+#a=5

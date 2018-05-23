@@ -13,14 +13,18 @@ import numpy as np
 # TODO Write snapshot of model from generator (random z in model und output anschauen!)
 # TODO Implement number of epochs somewhere (in Trainer?!)
 # TODO See if add-hook with weight decay in create optimizer - Lets weights decay to zero (regularization).
+# TODO Stil need to implement things like dropout, randomization, serialization!
+# TODO Write backup/save for parameter configuration to txt file prior to run
 
 #---------------------------------------------------------------------------------------------------------------------#
 #                                                   BEGIN CODE                                                        #
 #-------------------------------------------------------------------------------------------------------------------- #
 
+
 def create_optimizer(model, learning_rate=.0001, beta1=.9, beta2=.99):
     """ Create an optimizer from a model of <class> {discriminator, generator}"""
     opt = chainer.optimizers.Adam(learning_rate, beta1, beta2)
+    #optimizer.add_hook(chainer.optimizer.WeightDecay(0.00001), 'hook_dec') Needed?
     opt.setup(model)
     return opt
 
@@ -28,12 +32,30 @@ def create_optimizer(model, learning_rate=.0001, beta1=.9, beta2=.99):
 conf_parser = cp.Config('setup.ini')
 params = conf_parser.get_params()
 
+# DEFINE CONSTANTS
+BATCH_SIZE = params['Model']['batch_size']
+LEARNING_RATE = params['Adam']['learning_rate']
+BETA1 = params['Adam']['beta1']
+BETA2 = params['Adam']['beta2']
+PENALTY_COEFF = params['Adam']['penalty_coeff']
+OUT_DIR = params['Directories']['out_dir']
+EPOCHS = params['Model']['epoch']
+USE_GPU = params['Model']['use_gpu']
+
+SNAP_INTERVAL = (params['Saving']['snap_interval'], 'epoch')
+DISP_INTERVAL = (params['Saving']['display_interval'], 'epoch')
+PRINT_INTERVAL = (params['Saving']['print_interval'], 'iteration')
+PLOT_INTERVAL = (params['Saving']['plot_interval'], 'iteration')
+
+
 generator = GAN.Generator(**params['Model'])
 discriminator = GAN.Discriminator(**params['Model'])
 
+train_data = np.random.randint(1,255,(1,3,64,64,32)).astype(np.float32)
+test_data = np.random.randint(1,255,(1,3,64,64,32)).astype(np.float32)
 
-train_data = chainer.Variable(np.random.randint(1,255,(1,3,64,64,32)).astype(np.float32))
-test_data = chainer.Variable(np.random.randint(1,255,(1,3,64,64,32)).astype(np.float32))
+# Set training environment for dropout
+chainer.using_config('train', True)
 
 
 # Define data iterators (testing not needed yet)
@@ -51,23 +73,42 @@ optimizer['disc-opt'] = create_optimizer(discriminator)
 updater = GANUpdater(models=(generator, discriminator), optimizer=optimizer, iterator=train_data_iter,
                      critic_iter=params['Adam']['critic_iter'], penalty_coeff=params['Adam']['penalty_coeff'])
 
+""" TRAINER """
+
 # Build trainer and extend with log info that is send to outfile -out-. This trainer also runs epoch etc.!
-trainer = chainer.training.Trainer(updater, stop_trigger=None, out='GAN-test')
+# Specify the stop trigger as the maximum number of epochs
+trainer = chainer.training.Trainer(updater, (EPOCHS, 'epoch'), out=OUT_DIR)
+trainer.extend(extensions.LogReport(trigger=DISP_INTERVAL))
+#trainer.extend(extensions.PrintReport(trigger=DISP_INTERVAL))
 
-#trainer.extend((n_epochs, 'epoch'))
-trainer.extend(extensions.LogReport()) # Add log report (loss/accuracy) and append every epoch to out of trainer
-trainer.extend(extensions.snapshot(filename='snapshot_epoch-{.updater.epoch')) # TODO change saving to every x epochs
-trainer.extend(extensions.PrintReport(
-    ['epoch', 'main/loss', 'main/accuracy', 'validation/main/loss', 'validation/main/accuracy', 'elapsed_time']))
-trainer.extend(extensions.PlotReport(['main/loss', 'validation/main/loss'], x_key='epoch', file_name='loss.png'))
-trainer.extend(
-    extensions.PlotReport(['main/accuracy', 'validation/main/accuracy'], x_key='epoch', file_name='accuracy.png'))
-trainer.extend(extensions.dump_graph('main/loss'))
+# SNAPTSHOT OF OBJECT STATE!
+trainer.extend(extensions.snapshot(filename='snapshot_epoch_{.updater.epoch}.npz'), trigger=SNAP_INTERVAL)
+trainer.extend(extensions.snapshot_object(generator, 'g_epoch_{.updater.epoch}.npz'), trigger=SNAP_INTERVAL)
+trainer.extend(extensions.snapshot_object(discriminator, 'd_epoch_{.updater.epoch}.npz'), trigger=SNAP_INTERVAL)
 
-trainer.extend(extensions.ProgressBar()) # Gives us a progress bar !
+# Display
+trainer.extend(extensions.LogReport(trigger=PRINT_INTERVAL))
+trainer.extend(extensions.PrintReport(['iteration', 'main/loss', 'D/loss', 'D/loss_real', 'D/loss_fake']),
+               trigger=PRINT_INTERVAL)
+trainer.extend(extensions.ProgressBar(update_interval=PRINT_INTERVAL))
 
-trainer.run() # Run job
+trainer.extend(extensions.dump_graph('D/loss', out_name='TrainGraph.dot'))
 
+# Plotting
+trainer.extend(extensions.PlotReport(['main/loss'], 'iteration', file_name='Loss.png', trigger=PLOT_INTERVAL),
+               trigger=PLOT_INTERVAL)
+trainer.extend(extensions.PlotReport(['D/loss'], 'iteration', file_name='D_Loss.png', trigger=PLOT_INTERVAL),
+               trigger=PLOT_INTERVAL)
+
+trainer.extend(extensions.PlotReport(['D/loss_real'], 'iteration', file_name='Loss_Real.png', trigger=PLOT_INTERVAL),
+               trigger=PLOT_INTERVAL)
+
+trainer.extend(extensions.PlotReport(['D/loss_fake'], 'iteration', file_name='Loss_Fake.png', trigger=PLOT_INTERVAL),
+               trigger=PLOT_INTERVAL)
+
+
+# Execute!
+trainer.run()
 
 #if __name__ == '__main__':
 #    main()
