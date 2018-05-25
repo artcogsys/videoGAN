@@ -13,9 +13,6 @@ import chainer.functions as F
 import chainer.links as L
 import numpy as np
 
-# TODO Implement dropout!
-# TODO See if add noise to input and then decay over time?
-# TODO It is important that biases are initialized with 0 - Krazwald adds trainable bias (how?)!!!!!!!
 
 def convolution3d(in_channel, out_channel, weights, k_size=(4,4,4), stride=(2,2,2), pad=1, direction='forward'):
     """ Convolutions - A convolutional block consists of: (n_dim, in_channel, out_channel, ksize, stride, pad).

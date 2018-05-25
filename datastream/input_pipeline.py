@@ -6,11 +6,15 @@ The pipeline takes care of normalizing, cropping and making all videos
 the same frame length.
 Videos are randomized and put into batches in a multi-threaded fashion.
 
-Code taken from: https://github.com/bernhard2202/improved-video-gan/tree/master/data
+Code taken from: https://github.com/bernhard2202/improved-video-gan/tree/master/data/input_pipeline.py
+
+Code heavily modified and changed to Chainer by: Florian Mahner (25-05-18)
 """
 
 import tensorflow as tf
 import os
+from PIL import Image
+import numpy as np
 
 
 class InputPipeline(object):
@@ -34,21 +38,21 @@ class InputPipeline(object):
 
         with open(os.path.join(root_dir, index_file)) as f:
             content = f.readlines()
-        if "golf" in index_file:
-            content = [root_dir + '/' + x.strip() for x in content]
-        else:
-            content = [x.strip() for x in content]
+
+        content = [x.strip() for x in content]
         self._filename_queue = tf.train.string_input_producer(content, shuffle=True, num_epochs=num_epochs)
+        a=4
 
     def __read_video(self):
         """
         read one video of the filename queue and return it a image (JPG)
         of horizontally stacked frames
         """
-        file_reader = tf.WholeFileReader()
-        _, image_data = file_reader.read(self._filename_queue)
-        image = tf.cast(tf.image.decode_jpeg(image_data, channels=3), tf.float32)
-        return image
+        #file_reader = tf.WholeFileReader()
+        #_, image_data = file_reader.read(self._filename_queue)
+        #image = tf.cast(tf.image.decode_jpeg(image_data, channels=3), tf.float32)
+        #return image
+        
 
     def __preprocess(self, video):
         """

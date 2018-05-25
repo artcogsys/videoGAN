@@ -4,6 +4,7 @@ import nn.DCGAN as GAN
 from utils import config_parse as cp
 from computations.updater import GANUpdater
 from chainer.training import extensions
+from datastream import input_pipeline
 
 import numpy as np
 
@@ -15,6 +16,11 @@ import numpy as np
 # TODO See if add-hook with weight decay in create optimizer - Lets weights decay to zero (regularization).
 # TODO Stil need to implement things like dropout, randomization, serialization!
 # TODO Write backup/save for parameter configuration to txt file prior to run
+
+# TODO Dropout?!
+# TODO WRITE INPUT PIPELINE FOR DATA AND GO THROUGH BERNHARDS PARAMETERS IN DETAIL BEFORE RUN!!
+# TODO WRAP train into main() method!
+# TODO Write trainer that captures object state and generates a video for visual convergence determination every x epoch
 
 #---------------------------------------------------------------------------------------------------------------------#
 #                                                   BEGIN CODE                                                        #
@@ -38,6 +44,7 @@ LEARNING_RATE = params['Adam']['learning_rate']
 BETA1 = params['Adam']['beta1']
 BETA2 = params['Adam']['beta2']
 PENALTY_COEFF = params['Adam']['penalty_coeff']
+CRITIC_ITER = params['Adam']['critic_iter']
 OUT_DIR = params['Directories']['out_dir']
 EPOCHS = params['Model']['epoch']
 USE_GPU = params['Model']['use_gpu']
@@ -51,63 +58,54 @@ PLOT_INTERVAL = (params['Saving']['plot_interval'], 'iteration')
 generator = GAN.Generator(**params['Model'])
 discriminator = GAN.Discriminator(**params['Model'])
 
-train_data = np.random.randint(1,255,(1,3,64,64,32)).astype(np.float32)
-test_data = np.random.randint(1,255,(1,3,64,64,32)).astype(np.float32)
+train_data = np.random.randint(1,255,(BATCH_SIZE,3,64,64,32)).astype(np.float32)
+test_data = np.random.randint(1,255,(BATCH_SIZE,3,64,64,32)).astype(np.float32)
+
+pipe = input_pipeline.InputPipeline('/Users/florianmahner/Desktop/Donders_Internship/Programming/videoGAN/VideosSample',
+                                    'job-list.txt', 1, BATCH_SIZE)
+import tensorflow as tf
+
+batch = pipe.input_pipeline()
 
 # Set training environment for dropout
 chainer.using_config('train', True)
 
 
 # Define data iterators (testing not needed yet)
-train_data_iter = chainer.iterators.SerialIterator(train_data, batch_size=params['Model']['batch_size'])
-test_data_iter = chainer.iterators.SerialIterator(test_data, batch_size=params['Model']['batch_size'])
+train_data_iter = chainer.iterators.SerialIterator(train_data, batch_size=BATCH_SIZE)
+test_data_iter = chainer.iterators.SerialIterator(test_data, batch_size=BATCH_SIZE)
 
 # Create optimizers
-optimizer = {}
-optimizer['gen-opt'] = create_optimizer(generator, learning_rate=params['Adam']['learning_rate'],
-                                        beta1=params['Adam']['beta1'], beta2=params['Adam']['beta2'])
-optimizer['disc-opt'] = create_optimizer(discriminator)
+optimizers = {}
+optimizers['gen-opt'] = create_optimizer(generator, learning_rate=LEARNING_RATE,
+                                        beta1=BETA1, beta2=BETA2)
+optimizers['disc-opt'] = create_optimizer(discriminator)
 
 """ Start training"""
 # Create new updater!
-updater = GANUpdater(models=(generator, discriminator), optimizer=optimizer, iterator=train_data_iter,
-                     critic_iter=params['Adam']['critic_iter'], penalty_coeff=params['Adam']['penalty_coeff'])
+updater = GANUpdater(models=(generator, discriminator), optimizer=optimizers, iterator=train_data_iter,
+                     critic_iter=CRITIC_ITER, penalty_coeff=PENALTY_COEFF, batch_size=BATCH_SIZE)
 
 """ TRAINER """
 
 # Build trainer and extend with log info that is send to outfile -out-. This trainer also runs epoch etc.!
 # Specify the stop trigger as the maximum number of epochs
 trainer = chainer.training.Trainer(updater, (EPOCHS, 'epoch'), out=OUT_DIR)
-trainer.extend(extensions.LogReport(trigger=DISP_INTERVAL))
-#trainer.extend(extensions.PrintReport(trigger=DISP_INTERVAL))
-
-# SNAPTSHOT OF OBJECT STATE!
-trainer.extend(extensions.snapshot(filename='snapshot_epoch_{.updater.epoch}.npz'), trigger=SNAP_INTERVAL)
-trainer.extend(extensions.snapshot_object(generator, 'g_epoch_{.updater.epoch}.npz'), trigger=SNAP_INTERVAL)
-trainer.extend(extensions.snapshot_object(discriminator, 'd_epoch_{.updater.epoch}.npz'), trigger=SNAP_INTERVAL)
-
-# Display
-trainer.extend(extensions.LogReport(trigger=PRINT_INTERVAL))
-trainer.extend(extensions.PrintReport(['iteration', 'main/loss', 'D/loss', 'D/loss_real', 'D/loss_fake']),
-               trigger=PRINT_INTERVAL)
-trainer.extend(extensions.ProgressBar(update_interval=PRINT_INTERVAL))
-
-trainer.extend(extensions.dump_graph('D/loss', out_name='TrainGraph.dot'))
-
-# Plotting
-trainer.extend(extensions.PlotReport(['main/loss'], 'iteration', file_name='Loss.png', trigger=PLOT_INTERVAL),
-               trigger=PLOT_INTERVAL)
-trainer.extend(extensions.PlotReport(['D/loss'], 'iteration', file_name='D_Loss.png', trigger=PLOT_INTERVAL),
-               trigger=PLOT_INTERVAL)
-
-trainer.extend(extensions.PlotReport(['D/loss_real'], 'iteration', file_name='Loss_Real.png', trigger=PLOT_INTERVAL),
-               trigger=PLOT_INTERVAL)
-
-trainer.extend(extensions.PlotReport(['D/loss_fake'], 'iteration', file_name='Loss_Fake.png', trigger=PLOT_INTERVAL),
-               trigger=PLOT_INTERVAL)
 
 
-# Execute!
+snapshot_interval = (1, 'iteration')
+display_interval = (1, 'iteration')
+trainer.extend(extensions.snapshot(filename='snapshot_iter_{.updater.iteration}.npz'),trigger=snapshot_interval)
+trainer.extend(extensions.snapshot_object(generator, 'gen_iter_{.updater.iteration}.npz'), trigger=snapshot_interval)
+trainer.extend(extensions.snapshot_object(discriminator, 'dis_iter_{.updater.iteration}.npz'), trigger=snapshot_interval)
+trainer.extend(extensions.LogReport(trigger=display_interval))
+
+trainer.extend(extensions.PrintReport(['epoch', 'iteration', 'gen-opt/loss', 'disc-opt/loss',]), trigger=display_interval)
+
+trainer.extend(extensions.ProgressBar(update_interval=1))
+
+
+
 trainer.run()
 
 #if __name__ == '__main__':
