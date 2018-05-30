@@ -1,9 +1,14 @@
-import sys
+"""
+__author__: Florian Mahner
+__email__: fmahner@uos.de
+__status__: Development
+__date__: 11-05-2018
+
+Reading parameters for videoGAN from setup.ini file and return as parameter dictionary
+"""
 import configparser
-from optparse import OptionParser
 
 class Config(object):
-    ''' Reading videoGAN parameters'''
 
     def __init__(self, cfgfile):
         self.parser = configparser.ConfigParser()
@@ -14,13 +19,14 @@ class Config(object):
         params = {}
         try:
             params['Directories'] = {}
-            params['Directories']['in_dir'] = self.parser.get('DIRECTORIES', 'root_dir')
+            params['Directories']['root_dir'] = self.parser.get('DIRECTORIES', 'root_dir')
+            params['Directories']['index_dir'] = self.parser.get('DIRECTORIES', 'index_dir')
             params['Directories']['out_dir'] = self.parser.get('DIRECTORIES', 'out_dir')
 
             params['Model'] = {}
             params['Model']['batch_size'] = self.parser.getint('MODEL', 'batch_size')
+            params['Model']['n_frames'] = self.parser.getint('MODEL', 'n_frames')
             params['Model']['frame_size'] = self.parser.getint('MODEL', 'frame_size')
-            params['Model']['crop_size'] = self.parser.getint('MODEL', 'crop_size')
             params['Model']['epoch'] = self.parser.getint('MODEL', 'epoch')
             params['Model']['use_gpu'] = self.parser.getint('MODEL', 'use_gpu')
             params['Model']['latent_dim'] = self.parser.getint('MODEL', 'latent_dim')

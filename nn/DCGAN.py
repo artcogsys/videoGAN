@@ -12,6 +12,7 @@ import chainer
 import chainer.functions as F
 import chainer.links as L
 import numpy as np
+from chainer import cuda
 
 
 def convolution3d(in_channel, out_channel, weights, k_size=(4,4,4), stride=(2,2,2), pad=1, direction='forward'):
@@ -27,14 +28,14 @@ def convolution3d(in_channel, out_channel, weights, k_size=(4,4,4), stride=(2,2,
 
 
 class VideoGenerator(chainer.Chain):
-    """ Superclass of shared attributes and parameters for the Discriminator and Generator """
+    """ Superclass that holds shared attributes and parameters for the Discriminator and Generator """
     def __init__(self, **kwargs):
         super(VideoGenerator, self).__init__()
         self.batch_size = kwargs.get('batch_size', 64)
         self.latent_dim = kwargs.get('latent_dim', 100)
-        self.frame_size = kwargs.get('frame_size', 32)
+        self.n_frames = kwargs.get('n_frames', 32)
         self.weight_scale = kwargs.get('weight_scale', .001)
-        self.crop_size = kwargs.get('crop_size', 64)
+        self.frame_size = kwargs.get('frame_size', 64)
 
 
 class Discriminator(VideoGenerator):
@@ -131,5 +132,6 @@ class Generator(VideoGenerator):
     def sample_hidden(self):
         """ Sample latent space from a spherical uniform distribution.
         For details please see: https://github.com/dribnet/plat """
-        z_layer = np.random.uniform(-1, 1, (self.batch_size, self.latent_dim)).astype(np.float32)
+        xp = cuda.get_array_module()
+        z_layer = xp.random.uniform(-1, 1, (self.batch_size, self.latent_dim)).astype(xp.float32)
         return F.normalize(z_layer)
