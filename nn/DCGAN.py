@@ -31,11 +31,11 @@ class VideoGenerator(chainer.Chain):
     """ Superclass that holds shared attributes and parameters for the Discriminator and Generator """
     def __init__(self, **kwargs):
         super(VideoGenerator, self).__init__()
-        self.batch_size = kwargs.get('batch_size', 64)
-        self.latent_dim = kwargs.get('latent_dim', 100)
-        self.n_frames = kwargs.get('n_frames', 32)
-        self.weight_scale = kwargs.get('weight_scale', .001)
-        self.frame_size = kwargs.get('frame_size', 64)
+        self._batch_size = kwargs.get('batch_size', 64)
+        self._latent_dim = kwargs.get('latent_dim', 100)
+        self._n_frames = kwargs.get('n_frames', 32)
+        self._weight_scale = kwargs.get('weight_scale', .001)
+        self._frame_size = kwargs.get('frame_size', 64)
 
 
 class Discriminator(VideoGenerator):
@@ -54,7 +54,7 @@ class Discriminator(VideoGenerator):
         super(Discriminator, self).__init__(**kwargs)
 
         # Initialize weights with HeNormal Distribution and scale inherited from superclass
-        self.w = chainer.initializers.HeNormal(self.weight_scale)
+        self.w = chainer.initializers.HeNormal(self._weight_scale)
 
         with self.init_scope():
 
@@ -92,14 +92,14 @@ class Generator(VideoGenerator):
     def __init__(self, ch = 512, **kwargs):
         self.ch = ch
         super(Generator, self).__init__(**kwargs)
-        self.w = chainer.initializers.HeNormal(self.weight_scale)
-        self.up_sample_dim = tuple([ch, 4, 4, 2])
+        self.w = chainer.initializers.HeNormal(self._weight_scale)
+        self._up_sample_dim = tuple([ch, 4, 4, 2])
 
         with self.init_scope():
 
             # Linear Block. Linearly up sample latent space to first hidden layer in four-dimensional space producing
             # a feature space of size (512, 4, 4, 2).
-            self.linear1 = L.Linear(self.latent_dim, np.prod(self.up_sample_dim), initialW = self.w)
+            self.linear1 = L.Linear(self._latent_dim, np.prod(self._up_sample_dim), initialW = self.w)
 
             # Convolutions. Perform a series of four fractionally-strided convolutions which map to 256,128,64,3
             # feature channels, producing of video of size (64,64,32,3)
@@ -109,7 +109,7 @@ class Generator(VideoGenerator):
             self.deconv4 = convolution3d(ch // 8, 3, weights = self.w, direction = 'backward', pad=1)
 
             # Batch normalizations for all layers except last one
-            self.batch_norm1 = L.BatchNormalization(np.prod(self.up_sample_dim))
+            self.batch_norm1 = L.BatchNormalization(np.prod(self._up_sample_dim))
             self.batch_norm2 = L.BatchNormalization(ch // 2)
             self.batch_norm3 = L.BatchNormalization(ch // 4)
             self.batch_norm4 = L.BatchNormalization(ch // 8)
@@ -120,7 +120,7 @@ class Generator(VideoGenerator):
             return shape: (batch size, 3, 64, 64, 32) - A full video is produced from a 1D noise input!
         """
         hidden1 = F.leaky_relu(self.batch_norm1(self.linear1(latent_z)))
-        hidden1 = F.reshape(hidden1, tuple([self.batch_size]) + self.up_sample_dim)
+        hidden1 = F.reshape(hidden1, tuple([self._batch_size]) + self._up_sample_dim)
         hidden2 = F.leaky_relu(self.batch_norm2(self.deconv1(hidden1)))
         hidden3 = F.leaky_relu(self.batch_norm3(self.deconv2(hidden2)))
         hidden4 = F.leaky_relu(self.batch_norm4(self.deconv3(hidden3)))
@@ -133,5 +133,14 @@ class Generator(VideoGenerator):
         """ Sample latent space from a spherical uniform distribution.
         For details please see: https://github.com/dribnet/plat """
         xp = cuda.get_array_module()
-        z_layer = xp.random.uniform(-1, 1, (self.batch_size, self.latent_dim)).astype(xp.float32)
+        z_layer = xp.random.uniform(-1, 1, (self._batch_size, self._latent_dim)).astype(xp.float32)
         return F.normalize(z_layer)
+
+    def set_sample_size(self, batch_size):
+        """ Setter method to allow sampling of single video from generator with ongoing training iterations. Without
+            changing the batch_size, the generator will always produce the same number of videos as initialized with the
+            batch size during training, which is redundant for visualization """
+        self._batch_size = batch_size
+
+    def get_sample_size(self):
+        return self._batch_size
