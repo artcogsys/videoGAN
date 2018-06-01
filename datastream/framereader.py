@@ -8,7 +8,7 @@ This file creates an input pipeline to load the videos from a given root-directo
 an <instance> of a SerialIterator to obtain mini-batches for training.
 """
 
-import chainer
+from chainer import cuda
 import glob
 import os
 import cv2
@@ -39,7 +39,8 @@ class FrameReader(object):
 
 
     def load_dataset(self):
-        """ Loads all data from index file in a multithreaded fashion. Returns entire dataset as list """
+        """ Loads all data from index file in a multithreaded fashion.
+        :return <list> entire dataset """
 
         with open(os.path.join(self.root_dir, self.index_file)) as f:
             content = f.readlines()
@@ -66,6 +67,8 @@ class FrameReader(object):
 
     def _preprocess_imgs(self, images):
 
+        xp = cuda.get_array_module()
+
         # Preallocate data for computational speed and retrieve attributes once
         img_proc = np.empty([len(images), 3, self.frame_size, self.frame_size, self.n_frames], dtype=np.float32)
         frame_size = self.frame_size
@@ -75,36 +78,20 @@ class FrameReader(object):
 
             r = frame_size / img.shape[1] # Scaling factor
             dim = (frame_size, (int(img.shape[0] * r)))
-            # Rescale the image to fit the actual frame size. A video of e.g. size of original size {128 x 128} is then
+            # Rescale the image to fit the actual frame size. A video of e.g. of original size {128 x 128} is then
             # reduced to {frame_size x frame_size}
             img = cv2.resize(img, dim)
-
-            # Reshape
             frames_video = img.shape[0] // frame_size
-            img = np.reshape(img, [3, 64, 64, frames_video])
+            img = xp.reshape(img, [3, 64, 64, frames_video])
 
+            # Either take the first n_frames, or if the frame length is too short, create repeated copies of last frame
+            # and append
             if frames_video >= n_frames:
                 img = img[:, :, :, 0 : n_frames]
             else:
-                last = np.tile(img[-1], (1, 1, 1, n_frames - frames_video)) # Created repeated copies of last frame
-                img = np.concatenate((img, last)) # Join frames!
+                last = xp.tile(img[-1], (1, 1, 1, n_frames - frames_video))
+                img = xp.concatenate((img, last))
 
             img_proc[idx] = img
 
         return img_proc
-
-
-
-
-"""
-import time
-start = time.time()
-
-a = FrameReader('/Users/florianmahner/Desktop/Donders_Internship/Programming/videoGAN/VideosSample/', 'job-list.txt')
-batches = a.read_imgs()
-
-print('Time: %s' %(time.time() - start))
-
-#path = '/Users/florianmahner/Desktop/Donders_Internship/Programming/videoGAN/VideosSample'
-"""
-
