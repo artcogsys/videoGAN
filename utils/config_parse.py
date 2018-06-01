@@ -3,12 +3,11 @@ __author__: Florian Mahner
 __email__: fmahner@uos.de
 __status__: Development
 __date__: 11-05-2018
-
-Reading parameters for videoGAN from setup.ini file and return as parameter dictionary
 """
 import configparser
 
 class Config(object):
+    """ Reading parameters for videoGAN from setup.ini file and return as parameter dictionary """
 
     def __init__(self, cfgfile):
         self.parser = configparser.ConfigParser()
