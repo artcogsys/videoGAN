@@ -16,11 +16,11 @@ import chainer.functions as F
 
 class GANUpdater(chainer.training.updaters.StandardUpdater):
     """
-    Every Updater consists of an <class>
-    Iterator that continously feeds batches and an <class> Optimizer for the loss function. An instance of
-    <class> chainer.training.Trainer is connected to <class> GANUpdater, which calls the <method> update_core() to
-    calculate the loss of the Generator and Discriminator. This loss is passed onto the individual optimizers of both
-    networks and reported to the Trainer.
+    Every GANUpdater consists of a :class:`~chainer.iterators.MultiProcessIterator` that continously feeds batches for
+    training and implements a loss function to update the weights. An instance of :class:`~chainer.training.Trainer` is
+    connected to :class:`~computations.GANUpdater`, which calls the :method:`~computations.GANUpdater.update_core() to
+    calculate the loss for the Generator and Discriminator. This loss is passed onto any optimization approach for both
+    networks and reported to the trainer.
     """
 
     def __init__(self, **kwargs):
@@ -28,13 +28,13 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         :param kwargs: Every Updater requires a model to be trained, an iterator for batches and an optimizer for the
                        loss function
         """
-        self.generator, self.discriminator = kwargs.pop('models')
-        self.critic_iter = kwargs.pop('critic_iter', 5)
-        self.penalty_coeff = kwargs.pop('penalty_coeff', 10)
-        self.batch_size = kwargs.pop('batch_size')
+        self._generator, self._discriminator = kwargs.pop('models')
+        self._critic_iter = kwargs.pop('critic_iter', 5)
+        self._penalty_coeff = kwargs.pop('penalty_coeff', 10)
+        self._batch_size = kwargs.pop('batch_size')
         super(GANUpdater, self).__init__(**kwargs, converter=chainer.dataset.convert.ConcatWithAsyncTransfer)
-        self.iterator = kwargs.pop('iterator')
-        self.optimizers = kwargs.pop('optimizer')
+        self._iterator = kwargs.pop('iterator')
+        self._optimizers = kwargs.pop('optimizer')
 
     def update_core(self):
 
@@ -43,35 +43,35 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         discriminator_opt = self.get_optimizer('disc-opt')
 
         # Get next batch
-        xp = self.generator.xp
+        xp = self._generator.xp
         videos_true = xp.asarray(self.get_iterator('main').next())
 
         # The Generator is updated once every set of critic iterations and the Discriminator at each iteration
-        for i in range(self.critic_iter):
+        for i in range(self._critic_iter):
 
             # Feed current batch into discriminator and determine if fake or real
-            eval_true = self.discriminator(videos_true)
+            eval_true = self._discriminator(videos_true)
 
             # Feed 100-dimensional z-space into generator and produce a video
-            latent_z = self.generator.sample_hidden()
-            videos_fake = self.generator(latent_z)
+            latent_z = self._generator.sample_hidden()
+            videos_fake = self._generator(latent_z)
 
             # Feed generated image into discriminator and determine if fake or real
-            eval_fake = self.discriminator(videos_fake)
+            eval_fake = self._discriminator(videos_fake)
 
             # Calculate the gradient penalty added to the loss function by enforcing the Lipschitz constraint on
             # the critic network.
-            gradient_penalty = self._gradient_penalty(self.discriminator, videos_true, videos_fake)
+            gradient_penalty = self._gradient_penalty(self._discriminator, videos_true, videos_fake)
 
             # Update the discriminator and generator with the defined loss functions
             if i == 0:
-                generator_opt.update(self.generator_loss, self.generator, eval_fake)
+                generator_opt.update(self.generator_loss, self._generator, eval_fake)
 
-            discriminator_opt.update(self.discriminator_loss, self.discriminator, eval_true, eval_fake, gradient_penalty)
+            discriminator_opt.update(self.discriminator_loss, self._discriminator, eval_true, eval_fake, gradient_penalty)
 
     def generator_loss(self, generator, eval_fake):
         # The goal of the generator is to maximize the mean loss
-        gen_loss = F.sum(-eval_fake) / self.batch_size
+        gen_loss = F.sum(-eval_fake) / self._batch_size
         chainer.report({'loss': gen_loss}, generator)
         return gen_loss
 
@@ -79,7 +79,7 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         # Calculate the discriminator loss by enforcing the gradient penalty on the summed difference of real and fake
         # videos
         disc_loss = F.sum(eval_true - eval_fake + gradient_penalty)
-        disc_loss /= self.batch_size
+        disc_loss /= self._batch_size
         chainer.report({'loss': disc_loss}, discriminator)
         return disc_loss
 
@@ -99,8 +99,8 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
             return abs(vec)
 
         # Interpolation creates new data points within range of discrete data points
-        xp = self.generator.xp
-        epsilon = xp.random.uniform(low=0, high=1, size=self.batch_size).astype(xp.float32)[:, None, None, None, None]
+        xp = self._generator.xp
+        epsilon = xp.random.uniform(low=0, high=1, size=self._batch_size).astype(xp.float32)[:, None, None, None, None]
         interpolates = (1. - epsilon) * real_video + epsilon * fake_video
 
         # Feed interpolated sample into discriminator and compute gradients
@@ -109,6 +109,16 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         slopes = l2norm(gradients)
 
         # Penalty coefficient is a hyperparameter, where 10 was found to be working best (eq. 7)
-        gradient_penalty = (self.penalty_coeff * (slopes - 1.) ** 2)[:, xp.newaxis]
+        gradient_penalty = (self._penalty_coeff * (slopes - 1.) ** 2)[:, xp.newaxis]
 
         return gradient_penalty
+
+    @property
+    def generator(self):
+        """ Getter for :attrbiute: generator for current state of training and video generation from that state """
+        return self._generator
+
+    @property
+    def discriminator(self):
+        """ Getter for :attribute: discriminator to retrieve current state of training """
+        return self._discriminator

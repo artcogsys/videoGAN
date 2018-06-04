@@ -3,6 +3,9 @@ __author__: Florian Mahner
 __email__: fmahner@uos.de
 __status__: Development
 __date__: 11-05-2018
+
+This file defines the training process of the Generative Adversarial Network and extracts relevant information of
+computations
 """
 
 import chainer
@@ -13,59 +16,76 @@ from chainer.training import extensions
 
 
 class GANTrainer(chainer.training.Trainer):
+    """ A GANTrainer is initialized with an <class> updater and the corresponding loss functions and update rules
+    used by the trainer. The trainer writes reports at specific iteration intervals of the state of GAN training.
+    Every couple of iterations, the trainer creates a video from the learned representation of the trainer, to obtain
+    visual feedback of convergence """
 
     def __init__(self, updater, epochs=1000, **kwargs):
-
+        """
+        :param updater: Custom or normal updater, as in chainer.training.StandardUpdater()
+        :param epochs: number of training epochs
+        :param kwargs: plotting specifics, including saving intervals and directories
+        """
         self.updater = updater
         self.epochs = (epochs, 'epoch')
         self.n_frames = kwargs.pop('n_frames', 32)
-        self.epochs = kwargs.pop('epoch', 100)
+        self.epochs = (kwargs.pop('epochs', 100), 'epoch')
         self.plot_interval = (kwargs.pop('plot_interval', 1), 'iteration')
         self.disp_interval = (kwargs.pop('disp_interval', 1), 'iteration')
         self.snap_interval = (kwargs.pop('snap_interval', 1), 'iteration')
         self.out_dir = kwargs.pop('out_dir', '')
+        super(GANTrainer, self).__init__(updater, stop_trigger=self.epochs, out=self.out_dir)
 
 
     def write_report(self):
+        """ Extend the trainer to write object snapshots and log reports"""
 
-        # Get <protected> attributes from updarter instance
+        # Get <protected> attributes from updater instance
         generator = self.updater.generator
         discriminator = self.updater.discriminator
 
-        self.extend(extensions.snapshot(filename='snapshot_iter_{.updater.iteration}.npz'),trigger=self.snap_interval)
-        self.extend(extensions.snapshot_object(generator, 'gen_iter_{.updater.iteration}.npz'), trigger=self.snap_interval)
-        self.extend(extensions.snapshot_object(discriminator, 'dis_iter_{.updater.iteration}.npz'), trigger=self.snap_interval)
+        # Get snapshots of generator, discriminator objects
+        self.extend(extensions.snapshot_object(generator, 'gen_iter_{.updater.iteration}.npz'),
+                    trigger=self.snap_interval)
+        self.extend(extensions.snapshot_object(discriminator, 'dis_iter_{.updater.iteration}.npz'),
+                    trigger=self.snap_interval)
         self.extend(extensions.LogReport(trigger=self.disp_interval))
 
+        # Log performances and error during training
         self.extend(extensions.PrintReport(['epoch', 'iteration', 'gen-opt/loss', 'disc-opt/loss', ]),
                     trigger=self.disp_interval)
         self.extend(extensions.ProgressBar(update_interval=1))
-        self.extend(self.__generate_training_video(generator, save_path=self.out_dir),
-                    trigger=self.plot_interval)
+
+        # Every <attribute> plot_interval, generate a new video and save
+        self.extend(self.__generate_training_video(generator),trigger=self.plot_interval)
 
 
-    def __generate_training_video(self, generator, n_frames, save_path=''):
+    def __generate_training_video(self, generator):
+        """ Extension from to generate videos during training """
 
         @chainer.training.make_extension()
         def get_video(trainer):
 
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
+            if not os.path.exists(self.out_dir):
+                os.makedirs(self.out_dir)
 
-            original_batch_size = generator.get_batch_size()
-            generator.get_sample_size(1)
+            # Set batch size to 1, to create a single video instead of multiple ones
+            original_batch_size = generator.batch_size
+            generator.batch_size = 1
             latent_z = generator.sample_hidden()
 
+            # Generate a new video
             with chainer.using_config('train', False) and chainer.using_config('enable_backprop', False):
+                vid = generator(latent_z)
 
-                vid = generator(latent_z).data
-
-            # filename = os.path.join(save_path, "iter_{}.jpg").format(trainer.updater.iteration)
-            with imageio.get_writer('test_' + str(trainer.updater.iteration) + '.gif', mode='I') as writer:
-                for i in range(n_frames):
+            # Write the videos as .gif by writing individual frames to imageio package writer
+            filename = os.path.join(self.out_dir, "vid_iter_{}.gif").format(trainer.updater.iteration)
+            with imageio.get_writer(filename, mode='I') as writer:
+                for i in range(generator.n_frames):
                     frame = np.swapaxes(np.squeeze(vid[:, :, :, :, i]), 0, 2)
                     writer.append_data(frame.astype(np.uint8))
 
-            generator.set_sample_size(original_batch_size)
-
+            # Reset original batch_size for further training
+            generator.batch_size = original_batch_size
         return get_video
