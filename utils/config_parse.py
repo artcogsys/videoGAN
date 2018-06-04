@@ -17,10 +17,9 @@ class Config(object):
 
         params = {}
         try:
-            params['Directories'] = {}
-            params['Directories']['root_dir'] = self.parser.get('DIRECTORIES', 'root_dir')
-            params['Directories']['index_dir'] = self.parser.get('DIRECTORIES', 'index_dir')
-            params['Directories']['out_dir'] = self.parser.get('DIRECTORIES', 'out_dir')
+            params['Data'] = {}
+            params['Data']['root_dir'] = self.parser.get('DATA', 'root_dir')
+            params['Data']['index_dir'] = self.parser.get('DATA', 'index_dir')
 
             params['Model'] = {}
             params['Model']['batch_size'] = self.parser.getint('MODEL', 'batch_size')
@@ -34,8 +33,8 @@ class Config(object):
             params['Saving'] = {}
             params['Saving']['snap_interval'] = self.parser.getint('SAVING', 'snap_interval')
             params['Saving']['display_interval'] = self.parser.getint('SAVING', 'display_interval')
-            params['Saving']['print_interval'] = self.parser.getint('SAVING', 'print_interval')
             params['Saving']['plot_interval'] = self.parser.getint('SAVING', 'plot_interval')
+            params['Saving']['out_dir'] = self.parser.get('SAVING', 'out_dir')
 
             params['Adam'] = {}
             params['Adam']['learning_rate'] = self.parser.getfloat('ADAM', 'learning_rate')
@@ -46,6 +45,6 @@ class Config(object):
             params['Adam']['penalty_coeff'] = self.parser.getint('ADAM', 'penalty_coeff')
 
         except configparser.NoOptionError as er:
-            print('Option could not be loaded, following error: {}'.format(er))
+            print('Option could not be loaded, due to the following error: {}'.format(er))
 
         return params
