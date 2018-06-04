@@ -41,11 +41,11 @@ FRAME_SIZE = params['Model']['frame_size']
 
 
 def create_optimizer(model, learning_rate=.0001, beta1=.9, beta2=.99):
-    """ Create an optimizer from a model of <class> {discriminator, generator}"""
+    """ Create an optimizer from a model of :class: {discriminator, generator}"""
     opt = chainer.optimizers.Adam(learning_rate, beta1, beta2)
-    #optimizer.add_hook(chainer.optimizer.WeightDecay(0.00001), 'hook_dec') Needed?
     opt.setup(model)
     return opt
+
 
 def deserialize_model(file_path, model):
     return chainer.serializers.load_npz(file_path, model)
@@ -60,10 +60,13 @@ def main():
         chainer.cuda.get_device(USE_GPU).use()
         generator.to_gpu()
         discriminator.to_gpu()
-        print('Discriminator and Generator passed onto GPU')
+        print('Discriminator and Generator passed onto GPU\n')
 
+    print('Start loading data from {0} and {1}'.format(ROOT_DIR, INDEX_DIR))
     input_pipeline = framereader.FrameReader(ROOT_DIR, INDEX_DIR, n_frames=N_FRAMES, frame_size=FRAME_SIZE)
     train_data = input_pipeline.load_dataset()
+    print('...Done')
+    assert len(train_data) > 0, 'Problem with datastream, empty training set'
 
     with chainer.using_config('train', True):
 

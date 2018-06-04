@@ -2,7 +2,7 @@
 __author__: Florian Mahner
 __email__: fmahner@uos.de
 __status__: Development
-__date__: 11-05-2018
+__date__: 03-06-2018
 
 This file defines the training process of the Generative Adversarial Network and extracts relevant information of
 computations
@@ -16,10 +16,10 @@ from chainer.training import extensions
 
 
 class GANTrainer(chainer.training.Trainer):
-    """ A GANTrainer is initialized with an <class> updater and the corresponding loss functions and update rules
-    used by the trainer. The trainer writes reports at specific iteration intervals of the state of GAN training.
-    Every couple of iterations, the trainer creates a video from the learned representation of the trainer, to obtain
-    visual feedback of convergence """
+    """ A GANTrainer is initialized with a :class:`~chainer.training.updater.StandardUpdater' and the corresponding
+    loss functions and update rules are used by the trainer. The trainer writes reports at specific iteration intervals
+    of the state of GAN training. Every couple of iterations, the trainer creates a video from the learned
+    representation of the trainer, to obtain visual feedback of convergence """
 
     def __init__(self, updater, epochs=1000, **kwargs):
         """
@@ -30,7 +30,7 @@ class GANTrainer(chainer.training.Trainer):
         self.updater = updater
         self.epochs = (epochs, 'epoch')
         self.n_frames = kwargs.pop('n_frames', 32)
-        self.epochs = (kwargs.pop('epochs', 100), 'epoch')
+        self.epochs = (kwargs.pop('epoch', 100), 'epoch')
         self.plot_interval = (kwargs.pop('plot_interval', 1), 'iteration')
         self.disp_interval = (kwargs.pop('disp_interval', 1), 'iteration')
         self.snap_interval = (kwargs.pop('snap_interval', 1), 'iteration')
@@ -41,7 +41,6 @@ class GANTrainer(chainer.training.Trainer):
     def write_report(self):
         """ Extend the trainer to write object snapshots and log reports"""
 
-        # Get <protected> attributes from updater instance
         generator = self.updater.generator
         discriminator = self.updater.discriminator
 
@@ -55,7 +54,7 @@ class GANTrainer(chainer.training.Trainer):
         # Log performances and error during training
         self.extend(extensions.PrintReport(['epoch', 'iteration', 'gen-opt/loss', 'disc-opt/loss', ]),
                     trigger=self.disp_interval)
-        self.extend(extensions.ProgressBar(update_interval=1))
+        self.extend(extensions.ProgressBar(update_interval=2))
 
         # Every <attribute> plot_interval, generate a new video and save
         self.extend(self.__generate_training_video(generator),trigger=self.plot_interval)
