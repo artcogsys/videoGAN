@@ -35,7 +35,6 @@ class GANTrainer(chainer.training.Trainer):
         self.out_dir = kwargs.pop('out_dir', '')
         super(GANTrainer, self).__init__(updater, stop_trigger=self.epochs, out=self.out_dir)
 
-
     def write_report(self):
         """ Extend the trainer to write object snapshots and log reports"""
 
@@ -57,7 +56,6 @@ class GANTrainer(chainer.training.Trainer):
         # Every <attribute> plot_interval, generate a new video and save
         self.extend(self.__generate_training_video(generator),trigger=self.plot_interval)
 
-
     def __generate_training_video(self, generator):
         """ Extension from to generate videos during training """
 
@@ -72,9 +70,9 @@ class GANTrainer(chainer.training.Trainer):
             generator.batch_size = 1
             latent_z = generator.sample_hidden()
 
-            # Generate a new video
+            # Generate a new video and retrieve only the data
             with chainer.using_config('train', False) and chainer.using_config('enable_backprop', False):
-                vid = generator(latent_z)
+                vid = generator(latent_z).data
 
             # Write the videos as .gif by writing individual frames to imageio package writer
             filename = os.path.join(self.out_dir, "vid_iter_{}.gif").format(trainer.updater.iteration)
