@@ -73,6 +73,7 @@ def main():
     with chainer.using_config('train', True):
 
         # Define data iterator -> Define n_processs here? (num CPU by default)
+        # TODO Non-repeating iterations? Shuffling?
         train_data_iter = chainer.iterators.MultiprocessIterator(train_data, batch_size=BATCH_SIZE)
 
         # Create optimizers
@@ -80,8 +81,9 @@ def main():
         optimizers['gen-opt'] = create_optimizer(generator, learning_rate=LEARNING_RATE, beta1=BETA1, beta2=BETA2)
         optimizers['disc-opt'] = create_optimizer(discriminator, learning_rate=LEARNING_RATE, beta1=BETA1, beta2=BETA2)
 
-        """ Start training by passing an <class> updater to a <class> trainer and extract log information """
-        # Create new updater!
+
+        # Create new updater and train!
+        print('Start training')
         updater = GANUpdater(models=(generator, discriminator), optimizer=optimizers, iterator=train_data_iter,
                              critic_iter=CRITIC_ITER, penalty_coeff=PENALTY_COEFF, batch_size=BATCH_SIZE,
                              device=USE_GPU)

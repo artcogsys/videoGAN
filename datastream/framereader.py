@@ -37,7 +37,6 @@ class FrameReader(object):
         self.n_frames = n_frames
         self.frame_size = frame_size
 
-
     def load_dataset(self):
         """ Loads all data from index file in a multithreaded fashion.
         :return <list> entire dataset """
