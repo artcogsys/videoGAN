@@ -27,26 +27,43 @@ def convolution3d(in_channel, out_channel, weights, k_size=(4,4,4), stride=(2,2,
         raise NameError('Wrong direction specified, please choose between {forward, backward}')
 
 
-class VideoGenerator(chainer.Chain):
+class VideoGAN(chainer.Chain):
     """ Superclass that holds shared attributes and parameters for the Discriminator and Generator """
     def __init__(self, **kwargs):
-        super(VideoGenerator, self).__init__()
+        super(VideoGAN, self).__init__()
         self._batch_size = kwargs.get('batch_size', 64)
         self._latent_dim = kwargs.get('latent_dim', 100)
         self._n_frames = kwargs.get('n_frames', 32)
         self._weight_scale = kwargs.get('weight_scale', .001)
         self._frame_size = kwargs.get('frame_size', 64)
 
+    @property
+    def batch_size(self):
+        return self._batch_size
 
-class Discriminator(VideoGenerator):
+    @batch_size.setter
+    def batch_size(self, value):
+        """ Setter method to allow sampling of single video from generator with ongoing training iterations. Without
+            changing the batch_size, the generator will always produce the same number of videos as initialized with the
+            batch size during training, which is redundant for visualization """
+        self._batch_size = value
+
+    @property
+    def n_frames(self):
+        """ Getter method for number of frames"""
+        return self._n_frames
+
+
+class Discriminator(VideoGAN):
     """ The discriminator network consists of five convolutional layers. The first convolutional layer has three input
     dimensions (RGB) and propagates forward to the given intial number of feature channels in the first hidden layer.
     With each subsequent convolution the amount of channels is doubled (512 in last hidden layer).
-    See http://carlvondrick.com/tinyvideo/discriminator.png for a visualization of tensor sizes with increasing layer
-    order. The last layer is a fully connected linear layer. Due to the Wasserstein constraint, batch normalization is
+    The last layer is a fully connected linear layer. Due to the Wasserstein constraint, batch normalization is
     ommited. The discriminator is in this case a critic network, since it is not trained to classify but only to
     give good gradient information onto the generator. Therefore using softmax to connect to acutal choice probabilities
-    is also omitted """
+    is also omitted.
+    See http://carlvondrick.com/tinyvideo/discriminator.png for a visualization of tensor sizes with increasing layer
+    order."""
 
     def __init__(self, ch = 64, **kwargs):
         # Initial channel is the number of feature channels in the first convolutional layer.
@@ -59,7 +76,7 @@ class Discriminator(VideoGenerator):
         with self.init_scope():
 
             # Convolutions. A kernel size of 4, stride 2 and pad 1 is used for forward propagation. The padding is
-            # required to fit dimensionality
+            # required to fit dimensionality. Propagate from 64 to 128 to 256 to 512 channels.
             self.conv1 = convolution3d(3, ch, self.w)
             self.conv2 = convolution3d(ch, ch * 2, self.w)
             self.conv3 = convolution3d(ch * 2, ch * 4, self.w)
@@ -83,7 +100,7 @@ class Discriminator(VideoGenerator):
         return self.linear5(hidden5)
 
 
-class Generator(VideoGenerator):
+class Generator(VideoGAN):
     """ A video generator linearly upsamples from a n-dimensional latent space onto the first layer. A series of
     fractionally stride convolutions or backward convolutions and then produces a video directly from the noise input.
     For a visualization, please see: http://carlvondrick.com/tinyvideo/network.png.
@@ -136,11 +153,5 @@ class Generator(VideoGenerator):
         z_layer = xp.random.uniform(-1, 1, (self._batch_size, self._latent_dim)).astype(xp.float32)
         return F.normalize(z_layer)
 
-    def set_sample_size(self, batch_size):
-        """ Setter method to allow sampling of single video from generator with ongoing training iterations. Without
-            changing the batch_size, the generator will always produce the same number of videos as initialized with the
-            batch size during training, which is redundant for visualization """
-        self._batch_size = batch_size
 
-    def get_sample_size(self):
-        return self._batch_size
+

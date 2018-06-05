@@ -25,7 +25,7 @@ class Config(object):
             params['Model']['batch_size'] = self.parser.getint('MODEL', 'batch_size')
             params['Model']['n_frames'] = self.parser.getint('MODEL', 'n_frames')
             params['Model']['frame_size'] = self.parser.getint('MODEL', 'frame_size')
-            params['Model']['epoch'] = self.parser.getint('MODEL', 'epoch')
+            params['Model']['epochs'] = self.parser.getint('MODEL', 'epochs')
             params['Model']['use_gpu'] = self.parser.getint('MODEL', 'use_gpu')
             params['Model']['latent_dim'] = self.parser.getint('MODEL', 'latent_dim')
             params['Model']['weight_scale'] = self.parser.getfloat('MODEL', 'weight_scale')

@@ -10,6 +10,8 @@ __date__: 31-05-2018
 # TODO GO THROUGH BERNHARDS PARAMETERS IN DETAIL BEFORE RUN!!
 # TODO Write function that loads discriminator and generator model from npz file!
 # TODO Normal iterator or multi process iterator? if multy, how many processes?
+# TODO Scale input?! -> Kratzwald mentions but where is it done?!
+# TODO Multiprocess or serialiterator??
 
 import chainer
 import nn.DCGAN as GAN
@@ -33,7 +35,7 @@ BETA2 = params['Adam']['beta2']
 PENALTY_COEFF = params['Adam']['penalty_coeff']
 CRITIC_ITER = params['Adam']['critic_iter']
 
-EPOCHS = params['Model']['epoch']
+EPOCHS = params['Model']['epochs']
 USE_GPU = params['Model']['use_gpu']
 BATCH_SIZE = params['Model']['batch_size']
 N_FRAMES = params['Model']['n_frames']
@@ -62,10 +64,10 @@ def main():
         discriminator.to_gpu()
         print('Discriminator and Generator passed onto GPU\n')
 
-    print('Start loading data from {0} and {1}'.format(ROOT_DIR, INDEX_DIR))
+    print('\nStart loading data from {0} and {1} ...'.format(ROOT_DIR, INDEX_DIR))
     input_pipeline = framereader.FrameReader(ROOT_DIR, INDEX_DIR, n_frames=N_FRAMES, frame_size=FRAME_SIZE)
     train_data = input_pipeline.load_dataset()
-    print('...Done')
+    print('... Done')
     assert len(train_data) > 0, 'Problem with datastream, empty training set'
 
     with chainer.using_config('train', True):
@@ -90,7 +92,4 @@ def main():
 
 
 if __name__ == '__main__':
-     main()
-
-
-
+    main()

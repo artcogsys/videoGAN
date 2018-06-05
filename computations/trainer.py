@@ -29,8 +29,6 @@ class GANTrainer(chainer.training.Trainer):
         """
         self.updater = updater
         self.epochs = (epochs, 'epoch')
-        self.n_frames = kwargs.pop('n_frames', 32)
-        self.epochs = (kwargs.pop('epoch', 100), 'epoch')
         self.plot_interval = (kwargs.pop('plot_interval', 1), 'iteration')
         self.disp_interval = (kwargs.pop('disp_interval', 1), 'iteration')
         self.snap_interval = (kwargs.pop('snap_interval', 1), 'iteration')
