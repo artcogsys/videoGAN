@@ -43,7 +43,7 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         # Get all models from inherited from superclass after passing at initialization
         generator_opt = self.get_optimizer('gen-opt')
         discriminator_opt = self.get_optimizer('disc-opt')
-        xp =self._generator.xp
+        xp = self._generator.xp
 
         videos_true = self.get_iterator('main').next()
 

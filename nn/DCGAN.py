@@ -150,7 +150,11 @@ class Generator(VideoGAN):
         """ Sample latent space from a spherical uniform distribution.
         For details please see: https://arxiv.org/pdf/1609.04468.pdf """
         z_layer = np.random.uniform(-1, 1, (self._batch_size, self._latent_dim)).astype(np.float32)
-        norm = np.sqrt(np.sum(np.square(z_layer), axis=1)) # Normalize z-layer manually (identical to F.normalize)
+
+        # Normalize z-layer manually (identical to :func:`~chainer.functions.normalization.l2_normalization.forward()
+        # or F.normalize()
+        norm = np.sqrt(np.sum(np.square(z_layer), axis=1, keepdims=True)) + 1e-5
+
         return z_layer / norm
 
 
