@@ -74,7 +74,13 @@ class GANTrainer(chainer.training.Trainer):
 
             # Generate a new video and retrieve only the data
             with chainer.using_config('train', False) and chainer.using_config('enable_backprop', False):
-                vid = generator(latent_z).data
+
+                vid = generator(latent_z)
+
+                if chainer.backends.cuda.get_device_from_array(vid.array) >= 0:
+                    vid = vid.data.to_cpu()
+                else:
+                    vid = vid.data
 
                 for i in range(num_videos):
                     # Write the videos as .gif by writing individual frames to imageio package writer

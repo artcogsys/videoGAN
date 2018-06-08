@@ -68,7 +68,7 @@ def main():
         chainer.cuda.get_device(USE_GPU).use()
         generator.to_gpu()
         discriminator.to_gpu()
-        print('Discriminator and Generator passed onto GPU\n')
+        print('\nDiscriminator and Generator are passed onto GPU')
 
     print('\nStart Loading Data from {0} and {1} ...'.format(ROOT_DIR, INDEX_DIR))
     input_pipeline = framereader.FrameReader(ROOT_DIR, INDEX_DIR, n_frames=N_FRAMES, frame_size=FRAME_SIZE)
