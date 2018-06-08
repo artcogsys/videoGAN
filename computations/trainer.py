@@ -13,6 +13,7 @@ import imageio
 import os
 import numpy as np
 from chainer.training import extensions
+from chainer import Variable
 
 
 class GANTrainer(chainer.training.Trainer):
@@ -68,7 +69,7 @@ class GANTrainer(chainer.training.Trainer):
             # Set batch size to 2, to create a single video instead of multiple ones
             original_batch_size = generator.batch_size
             generator.batch_size = num_videos
-            latent_z = generator.sample_hidden()
+            latent_z = Variable(generator.sample_hidden())
 
             # Generate a new video and retrieve only the data
             with chainer.using_config('train', False) and chainer.using_config('enable_backprop', False):

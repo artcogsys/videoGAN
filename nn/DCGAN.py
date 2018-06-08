@@ -152,7 +152,7 @@ class Generator(VideoGAN):
         z_layer = np.random.uniform(-1, 1, (self._batch_size, self._latent_dim)).astype(np.float32)
 
         # Normalize z-layer manually (identical to :func:`~chainer.functions.normalization.l2_normalization.forward()
-        # or F.normalize()
+        # or F.normalize()) to avoid Variable conversion
         norm = np.sqrt(np.sum(np.square(z_layer), axis=1, keepdims=True)) + 1e-5
 
         return z_layer / norm
