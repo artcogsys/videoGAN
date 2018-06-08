@@ -149,8 +149,7 @@ class Generator(VideoGAN):
     def sample_hidden(self):
         """ Sample latent space from a spherical uniform distribution.
         For details please see: https://github.com/dribnet/plat """
-        xp = cuda.get_array_module()
-        z_layer = xp.random.uniform(-1, 1, (self._batch_size, self._latent_dim)).astype(xp.float32)
+        z_layer = np.random.uniform(-1, 1, (self._batch_size, self._latent_dim)).astype(np.float32)
         return F.normalize(z_layer)
 
 

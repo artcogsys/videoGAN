@@ -4,22 +4,20 @@ __email__: fmahner@uos.de
 __status__: Development
 __date__: 31-05-2018
 """
-# TODO See if add-hook with weight decay in create optimizer - Lets weights decay to zero (regularization).
 # TODO Stil need to implement things like dropout, randomization, serialization!
-# TODO Write backup/save for parameter configuration to txt file prior to run
 # TODO GO THROUGH BERNHARDS PARAMETERS IN DETAIL BEFORE RUN!!
 # TODO Write function that loads discriminator and generator model from npz file!
-# TODO Normal iterator or multi process iterator? if multy, how many processes?
 # TODO Scale input?! -> Kratzwald mentions but where is it done?!
 # TODO Multiprocess or serialiterator??
+# TODO Generator + critic loss divided by batch size -> Doing atm in updater! -> Right for the loss function!
 
 import chainer
 import nn.DCGAN as GAN
 from utils import config_parse as cp
 from computations.updater import GANUpdater
 from computations.trainer import GANTrainer
-from chainer import cuda
 from datastream import framereader
+import os
 
 conf_parser = cp.Config('setup.ini')
 params = conf_parser.get_params()
@@ -52,6 +50,14 @@ def create_optimizer(model, learning_rate=.0001, beta1=.9, beta2=.99):
 def deserialize_model(file_path, model):
     return chainer.serializers.load_npz(file_path, model)
 
+def log_params(params, file_path, file):
+    if not os.path.exists(file_path):
+        os.makedirs(file_path)
+
+    with open(os.path.join(file_path, file), 'w') as f:
+        f.write(str(params))
+        f.close()
+
 
 def main():
 
@@ -64,17 +70,16 @@ def main():
         discriminator.to_gpu()
         print('Discriminator and Generator passed onto GPU\n')
 
-    print('\nStart loading data from {0} and {1} ...'.format(ROOT_DIR, INDEX_DIR))
+    print('\nStart Loading Data from {0} and {1} ...'.format(ROOT_DIR, INDEX_DIR))
     input_pipeline = framereader.FrameReader(ROOT_DIR, INDEX_DIR, n_frames=N_FRAMES, frame_size=FRAME_SIZE)
-    train_data = input_pipeline.load_dataset()
-    print('... Done')
-    assert len(train_data) > 0, 'Problem with datastream, empty training set'
 
     with chainer.using_config('train', True):
 
-        # Define data iterator -> Define n_processs here? (num CPU by default)
-        # TODO Non-repeating iterations? Shuffling?
-        train_data_iter = chainer.iterators.MultiprocessIterator(train_data, batch_size=BATCH_SIZE)
+        # Shuffling default by iterator. Set to false for validation!
+        # Iterator takes an input_pipeline with get_example() method implemented as argument. Batches are then retrieved
+        # depending on size and sent to GPU by :class:Updater, on which the iterator acts for training
+        train_data_iter = chainer.iterators.MultiprocessIterator(input_pipeline, batch_size=BATCH_SIZE, repeat=True,
+                                                                 shuffle=True)
 
         # Create optimizers
         optimizers = {}
@@ -83,12 +88,13 @@ def main():
 
 
         # Create new updater and train!
-        print('Start training')
+        print('Start Training')
         updater = GANUpdater(models=(generator, discriminator), optimizer=optimizers, iterator=train_data_iter,
                              critic_iter=CRITIC_ITER, penalty_coeff=PENALTY_COEFF, batch_size=BATCH_SIZE,
                              device=USE_GPU)
 
         trainer = GANTrainer(updater, epochs=EPOCHS, **params['Saving'])
+        log_params(params, params['Saving']['out_dir'],'hyper_params')
         trainer.write_report()
         trainer.run()
 

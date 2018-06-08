@@ -13,11 +13,9 @@ import glob
 import os
 import cv2
 import numpy as np
-from multiprocessing import Pool
 from tqdm import tqdm
 import chainer
 from chainer import Variable
-import chainer.functions as F
 
 
 class FrameReader(chainer.dataset.DatasetMixin):
@@ -62,9 +60,9 @@ class FrameReader(chainer.dataset.DatasetMixin):
         with open(os.path.join(self.root_dir, self.index_file)) as f:
             paths = f.readlines()
 
+        all_paths = []
         # Get all path from index file and save all file path in its subdirs
-        all_paths =[]
-        for path in paths:
+        for path in tqdm(paths):
             if path.strip():  # Ignore empty lines from filereader
                 file_paths = os.path.join(path.strip(), ('*' + self.ext))
                 all_paths.extend(glob.glob(file_paths))
@@ -94,5 +92,8 @@ class FrameReader(chainer.dataset.DatasetMixin):
         else:
             last = xp.tile(video[-1], (1, 1, 1, n_frames - frames_video))
             video = xp.concatenate((video, last))
+
+        # Rescale video from -1 to 1 due to tanh activation function of generator
+        video = np.interp(video, (video.min(), video.max()), (-1, +1)).astype(np.float32)
 
         return video
