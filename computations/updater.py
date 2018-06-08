@@ -12,6 +12,7 @@ https://arxiv.org/abs/1704.00028 (follow up paper)
 """
 import chainer
 import chainer.functions as F
+from chainer import Variable
 
 
 class GANUpdater(chainer.training.updaters.StandardUpdater):
@@ -46,7 +47,7 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         videos_true = self.get_iterator('main').next()
 
         # Wrap training batch with chainer.variable and send to gpu using built-in converter function from updater
-        videos_true = chainer.Variable(self.converter(videos_true, self.device))
+        videos_true = Variable(self.converter(videos_true, self.device))
 
         # The Generator is updated once every set of critic iterations and the Discriminator at each iteration
         for i in range(self._critic_iter):
@@ -56,6 +57,7 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
 
             # Feed 100-dimensional z-space into generator and produce a video
             latent_z = self._generator.sample_hidden()
+            latent_z = Variable(self.converter(latent_z, self.device))
             videos_fake = self._generator(latent_z)
 
             # Feed generated image into discriminator and determine if fake or real
