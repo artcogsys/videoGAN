@@ -57,7 +57,7 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
 
             # Feed 100-dimensional z-space into generator and produce a video
             latent_z = self._generator.sample_hidden()
-            latent_z = Variable(self.converter(latent_z, self.device))
+            latent_z = self.converter(latent_z, self.device)
             videos_fake = self._generator(latent_z)
 
             # Feed generated image into discriminator and determine if fake or real
