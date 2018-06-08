@@ -40,7 +40,6 @@ class Config(object):
             params['Adam']['learning_rate'] = self.parser.getfloat('ADAM', 'learning_rate')
             params['Adam']['beta1'] = self.parser.getfloat('ADAM', 'beta1')
             params['Adam']['beta2'] = self.parser.getfloat('ADAM', 'beta2')
-            params['Adam']['weight_decay'] = self.parser.getfloat('ADAM', 'weight_decay')
             params['Adam']['critic_iter'] = self.parser.getint('ADAM', 'critic_iter')
             params['Adam']['penalty_coeff'] = self.parser.getint('ADAM', 'penalty_coeff')
 
