@@ -148,9 +148,10 @@ class Generator(VideoGAN):
 
     def sample_hidden(self):
         """ Sample latent space from a spherical uniform distribution.
-        For details please see: https://github.com/dribnet/plat """
+        For details please see: https://arxiv.org/pdf/1609.04468.pdf """
         z_layer = np.random.uniform(-1, 1, (self._batch_size, self._latent_dim)).astype(np.float32)
-        return F.normalize(z_layer)
+        norm = np.sqrt(np.sum(np.square(z_layer), axis=1)) # Normalize z-layer manually (identical to F.normalize)
+        return z_layer / norm
 
 
 
