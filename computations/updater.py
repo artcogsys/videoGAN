@@ -43,6 +43,7 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         # Get all models from inherited from superclass after passing at initialization
         generator_opt = self.get_optimizer('gen-opt')
         discriminator_opt = self.get_optimizer('disc-opt')
+        xp = self._generator.xp
 
         videos_true = self.get_iterator('main').next()
 
@@ -56,7 +57,7 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
             eval_true = self._discriminator(videos_true)
 
             # Feed 100-dimensional z-space into generator and produce a video
-            latent_z = Variable(self._generator.sample_hidden())
+            latent_z = Variable(xp.asarray(self._generator.sample_hidden()))
             videos_fake = self._generator(latent_z)
 
             # Feed generated image into discriminator and determine if fake or real
