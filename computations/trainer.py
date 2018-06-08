@@ -29,11 +29,11 @@ class GANTrainer(chainer.training.Trainer):
         """
         self.updater = updater
         self.epochs = (epochs, 'epoch')
-        self.plot_interval = (kwargs.pop('plot_interval', 1), 'iteration')
-        self.disp_interval = (kwargs.pop('disp_interval', 1), 'iteration')
-        self.snap_interval = (kwargs.pop('snap_interval', 1), 'iteration')
-        self.out_dir = kwargs.pop('out_dir', '')
-        super(GANTrainer, self).__init__(updater, stop_trigger=self.epochs, out=self.out_dir)
+        self._plot_interval = (kwargs.pop('plot_interval', 1), 'iteration')
+        self._disp_interval = (kwargs.pop('disp_interval', 1), 'iteration')
+        self._snap_interval = (kwargs.pop('snap_interval', 1), 'iteration')
+        self._out_dir = kwargs.pop('out_dir', '')
+        super(GANTrainer, self).__init__(updater, stop_trigger=self.epochs, out=self._out_dir)
 
     def write_report(self):
         """ Extend the trainer to write object snapshots and log reports"""
@@ -43,43 +43,46 @@ class GANTrainer(chainer.training.Trainer):
 
         # Get snapshots of generator, discriminator objects
         self.extend(extensions.snapshot_object(generator, 'gen_iter_{.updater.iteration}.npz'),
-                    trigger=self.snap_interval)
+                    trigger=self._snap_interval)
         self.extend(extensions.snapshot_object(discriminator, 'dis_iter_{.updater.iteration}.npz'),
-                    trigger=self.snap_interval)
-        self.extend(extensions.LogReport(trigger=self.disp_interval))
+                    trigger=self._snap_interval)
+        self.extend(extensions.LogReport(trigger=self._disp_interval, log_name='log'))
 
         # Log performances and error during training
         self.extend(extensions.PrintReport(['epoch', 'iteration', 'gen-opt/loss', 'disc-opt/loss', ]),
-                    trigger=self.disp_interval)
-        self.extend(extensions.ProgressBar(update_interval=2))
+                    trigger=self._disp_interval)
+        self.extend(extensions.ProgressBar(update_interval=self._disp_interval[0]))
 
         # Every <attribute> plot_interval, generate a new video and save
-        self.extend(self.__generate_training_video(generator),trigger=self.plot_interval)
+        self.extend(self.__generate_training_video(generator),trigger=self._plot_interval)
 
-    def __generate_training_video(self, generator):
+    def __generate_training_video(self, generator, num_videos=2):
         """ Extension from to generate videos during training """
 
         @chainer.training.make_extension()
         def get_video(trainer):
 
-            if not os.path.exists(self.out_dir):
-                os.makedirs(self.out_dir)
+            if not os.path.exists(self._out_dir):
+                os.makedirs(self._out_dir)
 
-            # Set batch size to 1, to create a single video instead of multiple ones
+            # Set batch size to 2, to create a single video instead of multiple ones
             original_batch_size = generator.batch_size
-            generator.batch_size = 2
+            generator.batch_size = num_videos
             latent_z = generator.sample_hidden()
 
             # Generate a new video and retrieve only the data
             with chainer.using_config('train', False) and chainer.using_config('enable_backprop', False):
                 vid = generator(latent_z).data
 
-                # Write the videos as .gif by writing individual frames to imageio package writer
-                filename = os.path.join(self.out_dir, "vid_iter_{}.gif").format(trainer.updater.iteration)
-                with imageio.get_writer(filename, mode='I') as writer:
-                    for i in range(generator.n_frames):
-                        frame = np.swapaxes(np.squeeze(vid[:, :, :, :, i]), 0, 2)
-                        writer.append_data(frame.astype(np.uint8))
+                for i in range(num_videos):
+                    # Write the videos as .gif by writing individual frames to imageio package writer
+                    filename = os.path.join(self._out_dir, "vid{}_iter_{}.gif").format(i, trainer.updater.iteration)
+                    with imageio.get_writer(filename, mode='I') as writer:
+                            for j in range(generator.n_frames):
+                                frame = np.swapaxes(np.squeeze(vid[i, :, :, :, j]), 0, 2)
+                                writer.append_data(frame.astype(np.uint8))
+
+            print('Write gif')
 
             # Reset original batch_size for further training
             generator.batch_size = original_batch_size
