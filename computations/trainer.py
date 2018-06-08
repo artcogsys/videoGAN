@@ -78,7 +78,7 @@ class GANTrainer(chainer.training.Trainer):
                 vid = generator(latent_z)
 
                 if chainer.backends.cuda.get_device_from_array(vid.array) >= 0:
-                    vid = vid.data.to_cpu()
+                    vid = xp.asnumpy(vid.data)
                 else:
                     vid = vid.data
 
