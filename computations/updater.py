@@ -18,9 +18,9 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
     """
     Every GANUpdater consists of a :class:`~chainer.iterators.MultiProcessIterator` that continously feeds batches for
     training and implements a loss function to update the weights. An instance of :class:`~chainer.training.Trainer` is
-    connected to :class:`~computations.GANUpdater`, which calls the :method:`~computations.GANUpdater.update_core() to
+    connected to :class:`~computations.GANUpdater`, which calls :func:`~computations.GANUpdater.update_core() to
     calculate the loss for the Generator and Discriminator. This loss is passed onto any optimization approach for both
-    networks and reported to the trainer.
+    networks and reported to the Trainer.
     """
 
     def __init__(self, **kwargs):
@@ -32,9 +32,10 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         self._critic_iter = kwargs.pop('critic_iter', 5)
         self._penalty_coeff = kwargs.pop('penalty_coeff', 10)
         self._batch_size = kwargs.pop('batch_size')
-        super(GANUpdater, self).__init__(**kwargs, converter=chainer.dataset.convert.ConcatWithAsyncTransfer)
+        super(GANUpdater, self).__init__(**kwargs)#, converter=chainer.dataset.convert.ConcatWithAsyncTransfer)
         self._iterator = kwargs.pop('iterator')
         self._optimizers = kwargs.pop('optimizer')
+        self.device = kwargs.pop('device')
 
     def update_core(self):
 
@@ -42,9 +43,10 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         generator_opt = self.get_optimizer('gen-opt')
         discriminator_opt = self.get_optimizer('disc-opt')
 
-        # Get next batch
-        xp = self._generator.xp
-        videos_true = xp.asarray(self.get_iterator('main').next())
+        videos_true = self.get_iterator('main').next()
+
+        # Wrap training batch with chainer.variable and send to gpu using built-in converter function from updater
+        videos_true = chainer.Variable(self.converter(videos_true, self.device))
 
         # The Generator is updated once every set of critic iterations and the Discriminator at each iteration
         for i in range(self._critic_iter):
