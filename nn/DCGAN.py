@@ -149,7 +149,8 @@ class Generator(VideoGAN):
     def sample_hidden(self):
         """ Sample latent space from a spherical uniform distribution.
         For details please see: https://arxiv.org/pdf/1609.04468.pdf """
-        z_layer = np.random.uniform(-1, 1, (self._batch_size, self._latent_dim)).astype(np.float32)
+        xp = self.xp
+        z_layer = xp.random.uniform(-1, 1, (self._batch_size, self._latent_dim)).astype(xp.float32)
 
         # Normalize z-layer manually (identical to :func:`~chainer.functions.normalization.l2_normalization.forward()
         # or F.normalize()) to avoid Variable conversion
