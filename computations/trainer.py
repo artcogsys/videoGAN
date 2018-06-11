@@ -63,21 +63,22 @@ class GANTrainer(chainer.training.Trainer):
         @chainer.training.make_extension()
         def get_video(trainer):
 
+            xp = generator.xp
             if not os.path.exists(self._out_dir):
                 os.makedirs(self._out_dir)
 
             # Set batch size to 2, to create a single video instead of multiple ones
             original_batch_size = generator.batch_size
             generator.batch_size = num_videos
-            xp = generator.xp
-            latent_z = Variable(xp.asarray(generator.sample_hidden()))
+            #latent_z = Variable(xp.asarray(generator.sample_hidden()))
+            latent_z = generator.sample_hidden()
 
             # Generate a new video and retrieve only the data
             with chainer.using_config('train', False) and chainer.using_config('enable_backprop', False):
 
                 vid = generator(latent_z)
 
-                if chainer.backends.cuda.get_device_from_array(vid.array) >= 0:
+                if chainer.backends.cuda.get_device_from_array(vid.array).id >= 0:
                     vid = xp.asnumpy(vid.data)
                 else:
                     vid = vid.data
@@ -87,10 +88,8 @@ class GANTrainer(chainer.training.Trainer):
                     filename = os.path.join(self._out_dir, "vid{}_iter_{}.gif").format(i, trainer.updater.iteration)
                     with imageio.get_writer(filename, mode='I') as writer:
                             for j in range(generator.n_frames):
-                                frame = np.swapaxes(np.squeeze(vid[i, :, :, :, j]), 0, 2)
+                                frame = np.swapaxes(np.squeeze(vid[i, :, :, :, j]), 0, 2) * 255 # Rescale to uint8 range
                                 writer.append_data(frame.astype(np.uint8))
-
-            print('Write gif')
 
             # Reset original batch_size for further training
             generator.batch_size = original_batch_size

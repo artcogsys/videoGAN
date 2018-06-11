@@ -9,6 +9,10 @@ For details, please see:
 
 https://arxiv.org/abs/1701.07875 (original paper by Arjovski)
 https://arxiv.org/abs/1704.00028 (follow up paper)
+
+For mathematical explanations and loss functions for GANs in general and WGANs please see this excellent summary:
+https://lilianweng.github.io/lil-log/2017/08/20/from-GAN-to-WGAN.html
+
 """
 import chainer
 import chainer.functions as F
@@ -57,7 +61,7 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
             eval_true = self._discriminator(videos_true)
 
             # Feed 100-dimensional z-space into generator and produce a video
-            latent_z = Variable(xp.asarray(self._generator.sample_hidden()))
+            latent_z = self._generator.sample_hidden()
             videos_fake = self._generator(latent_z)
 
             # Feed generated image into discriminator and determine if fake or real
@@ -75,15 +79,15 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
 
     def generator_loss(self, generator, eval_fake):
         # The goal of the generator is to maximize the mean loss
-        gen_loss = F.sum(-eval_fake) / self._batch_size
+        # F.average(x) equals F.sum(x) / batch_size
+        gen_loss = F.average(-eval_fake)
         chainer.report({'loss': gen_loss}, generator)
         return gen_loss
 
     def discriminator_loss(self, discriminator, eval_true, eval_fake, gradient_penalty):
         # Calculate the discriminator loss by enforcing the gradient penalty on the summed difference of real and fake
-        # videos
-        disc_loss = F.sum(eval_true - eval_fake + gradient_penalty)
-        disc_loss /= self._batch_size
+        # videos -> It holds that F.sum(x+y) / batch_size = F.average(x) + F.average(y)
+        disc_loss = F.sum(eval_true - eval_fake + gradient_penalty) / discriminator.batch_size
         chainer.report({'loss': disc_loss}, discriminator)
         return disc_loss
 

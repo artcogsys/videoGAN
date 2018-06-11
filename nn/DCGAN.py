@@ -153,9 +153,7 @@ class Generator(VideoGAN):
 
         # Normalize z-layer manually (identical to :func:`~chainer.functions.normalization.l2_normalization.forward()
         # or F.normalize()) to avoid Variable conversion
-        norm = np.sqrt(np.sum(np.square(z_layer), axis=1, keepdims=True)) + 1e-5
-
-        return z_layer / norm
-
+        #norm = np.sqrt(np.sum(np.square(z_layer), axis=1, keepdims=True)) + 1e-5
+        return F.normalize(z_layer)
 
 
