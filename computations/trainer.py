@@ -70,7 +70,6 @@ class GANTrainer(chainer.training.Trainer):
             # Set batch size to 2, to create a single video instead of multiple ones
             original_batch_size = generator.batch_size
             generator.batch_size = num_videos
-            #latent_z = Variable(xp.asarray(generator.sample_hidden()))
             latent_z = generator.sample_hidden()
 
             # Generate a new video and retrieve only the data
@@ -85,11 +84,13 @@ class GANTrainer(chainer.training.Trainer):
 
                 for i in range(num_videos):
                     # Write the videos as .gif by writing individual frames to imageio package writer
-                    filename = os.path.join(self._out_dir, "vid{}_iter_{}.gif").format(i, trainer.updater.iteration)
+                    filename = os.path.join(self._out_dir, "vid{}_epoch_{}_iter{}.gif").format(
+                                            i, trainer.updater.epoch, trainer.updater.iteration)
                     with imageio.get_writer(filename, mode='I') as writer:
                             for j in range(generator.n_frames):
-                                frame = np.swapaxes(np.squeeze(vid[i, :, :, :, j]), 0, 2) * 255 # Rescale to uint8 range
-                                writer.append_data(frame.astype(np.uint8))
+                                frame = np.swapaxes(np.squeeze(vid[i, :, :, :, j]), 0, 2)
+                                frame = imageio.core.image_as_uint(frame)# Rescale to uint8 range
+                                writer.append_data(frame)
 
             # Reset original batch_size for further training
             generator.batch_size = original_batch_size

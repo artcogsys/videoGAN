@@ -50,6 +50,7 @@ def create_optimizer(model, learning_rate=.0001, beta1=.9, beta2=.99):
 def deserialize_model(file_path, model):
     return chainer.serializers.load_npz(file_path, model)
 
+
 def log_params(params, file_path, file):
     if not os.path.exists(file_path):
         os.makedirs(file_path)
