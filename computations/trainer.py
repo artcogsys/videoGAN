@@ -88,7 +88,8 @@ class GANTrainer(chainer.training.Trainer):
                     with imageio.get_writer(filename, mode='I') as writer:
                             for j in range(generator.n_frames):
                                 frame = np.swapaxes(np.squeeze(vid[i, :, :, :, j]), 0, 2)
-                                frame = imageio.core.image_as_uint(frame)# Rescale to uint8 range
+                                # Interpolate back to uint-8 format
+                                frame = np.interp(frame, (frame.min(), frame.max()), (0, 255)).astype(np.uint8)
                                 writer.append_data(frame)
 
             # Reset original batch_size for further training

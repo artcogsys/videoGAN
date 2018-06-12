@@ -87,7 +87,7 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
     def discriminator_loss(self, discriminator, eval_true, eval_fake, gradient_penalty):
         # Calculate the discriminator loss by enforcing the gradient penalty on the summed difference of real and fake
         # videos -> It holds that F.sum(x+y) / batch_size = F.average(x) + F.average(y)
-        disc_loss = F.sum(eval_true - eval_fake + gradient_penalty) / discriminator.batch_size
+        disc_loss = F.sum(eval_fake - eval_true + gradient_penalty) / discriminator.batch_size
         chainer.report({'loss': disc_loss}, discriminator)
         return disc_loss
 
@@ -104,6 +104,7 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
                 # Add epsilon to avoid problems of square root derivative close to zero. Since f(x + ε) = f(x),
                 # it follows that f(x + ε) - f(x) = 0
                 vec = F.sqrt(F.sum(vec * vec, axis=(1,2,3,4)) + 1e-12)
+                vec2 = F.sqrt(F.sum(vec * vec) + 1e-12)
             return abs(vec)
 
         # Interpolation creates new data points within range of discrete data points

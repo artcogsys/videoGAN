@@ -97,6 +97,6 @@ class FrameReader(chainer.dataset.DatasetMixin):
             video = xp.concatenate((video, last))
 
         # Rescale video from -1 to 1 due to tanh activation function of generator
-        video = np.interp(video, (video.min(), video.max()), (-1, +1)).astype(np.float32)
+        video = xp.interp(video, (video.min(), video.max()), (-1, +1)).astype(xp.float32)
 
         return video
