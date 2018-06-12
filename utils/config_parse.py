@@ -32,7 +32,7 @@ class Config(object):
 
             params['Saving'] = {}
             params['Saving']['snap_interval'] = self.parser.getint('SAVING', 'snap_interval')
-            params['Saving']['display_interval'] = self.parser.getint('SAVING', 'display_interval')
+            params['Saving']['disp_interval'] = self.parser.getint('SAVING', 'disp_interval')
             params['Saving']['plot_interval'] = self.parser.getint('SAVING', 'plot_interval')
             params['Saving']['out_dir'] = self.parser.get('SAVING', 'out_dir')
 

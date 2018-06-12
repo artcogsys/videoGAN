@@ -13,7 +13,6 @@ import imageio
 import os
 import numpy as np
 from chainer.training import extensions
-from chainer import Variable
 
 
 class GANTrainer(chainer.training.Trainer):
@@ -54,7 +53,7 @@ class GANTrainer(chainer.training.Trainer):
                     trigger=self._disp_interval)
         self.extend(extensions.ProgressBar(update_interval=self._disp_interval[0]))
 
-        # Every <attribute> plot_interval, generate a new video and save
+        # Every plot_interval, generate a new video and save
         self.extend(self.__generate_training_video(generator),trigger=self._plot_interval)
 
     def __generate_training_video(self, generator, num_videos=2):
