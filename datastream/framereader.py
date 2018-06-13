@@ -51,11 +51,14 @@ class FrameReader(chainer.dataset.DatasetMixin):
 
         try:
             batch = cv2.imread(self.content[idx])
+            batch = self.__preprocess_vid(batch)
 
-        except:
-            pass
+        except ValueError:
+            # Take a random sample from dataset if preprocessing failed
+            print('Could not preprocess {}. Take another random sample from dataset'.format(self.content[idx]))
+            self.get_example(np.random.randint(0,self.data_size))
 
-        return self.__preprocess_vid(batch)
+        return batch
 
 
     def __get_paths(self):

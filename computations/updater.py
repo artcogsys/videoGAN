@@ -10,7 +10,7 @@ For details, please see:
 https://arxiv.org/abs/1701.07875 (original paper by Arjovski)
 https://arxiv.org/abs/1704.00028 (follow up paper)
 
-For mathematical explanations and loss functions for GANs in general and WGANs please see this excellent summary:
+For mathematical explanations and loss functions for GANs in general and WGANs, please see this excellent summary:
 https://lilianweng.github.io/lil-log/2017/08/20/from-GAN-to-WGAN.html
 
 """
@@ -104,7 +104,6 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
                 # Add epsilon to avoid problems of square root derivative close to zero. Since f(x + ε) = f(x),
                 # it follows that f(x + ε) - f(x) = 0
                 vec = F.sqrt(F.sum(vec * vec, axis=(1,2,3,4)) + 1e-12)
-                vec2 = F.sqrt(F.sum(vec * vec) + 1e-12)
             return abs(vec)
 
         # Interpolation creates new data points within range of discrete data points
@@ -124,10 +123,10 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
 
     @property
     def generator(self):
-        """ Getter for :attrbiute: generator for current state of training and video generation from that state """
+        """ Getter for :attr:generator for current state of training and video generation from that state """
         return self._generator
 
     @property
     def discriminator(self):
-        """ Getter for :attribute: discriminator to retrieve current state of training """
+        """ Getter for :attr: discriminator to retrieve current state of training """
         return self._discriminator
