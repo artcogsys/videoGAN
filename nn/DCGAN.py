@@ -6,13 +6,15 @@ __date__: 11-05-2018
 
 This file defines the general architecture or skeleton of the Deep Convolutional Generative Adversarial Network for 3D
 Video generation.
+
+For an introduction, it is referred to:
+(1) https://arxiv.org/abs/1511.06434 or (2) https://deeplearning4j.org/generative-adversarial-network
 """
 
 import chainer
 import chainer.functions as F
 import chainer.links as L
 import numpy as np
-from chainer import cuda
 
 
 def convolution3d(in_channel, out_channel, weights, k_size=(4,4,4), stride=(2,2,2), pad=1, direction='forward'):
@@ -60,10 +62,9 @@ class Discriminator(VideoGAN):
     With each subsequent convolution the amount of channels is doubled (512 in last hidden layer).
     The last layer is a fully connected linear layer. Due to the Wasserstein constraint, batch normalization is
     ommited. The discriminator is in this case a critic network, since it is not trained to classify but only to
-    give good gradient information onto the generator. Therefore using softmax to connect to acutal choice probabilities
-    is also omitted.
-    See http://carlvondrick.com/tinyvideo/discriminator.png for a visualization of tensor sizes with increasing layer
-    order."""
+    give good gradient information onto the generator. Therefore using softmax to connect to actual choice probabilities
+    is also omitted. See http://carlvondrick.com/tinyvideo/discriminator.png for a visualization of tensor sizes with
+    increasing layer order."""
 
     def __init__(self, ch = 64, **kwargs):
         # Initial channel is the number of feature channels in the first convolutional layer.
@@ -151,10 +152,6 @@ class Generator(VideoGAN):
         For details please see: https://arxiv.org/pdf/1609.04468.pdf """
         xp = self.xp
         z_layer = xp.random.uniform(-1, 1, (self._batch_size, self._latent_dim)).astype(xp.float32)
-
-        # Normalize z-layer manually (identical to :func:`~chainer.functions.normalization.l2_normalization.forward()
-        # or F.normalize()) to avoid Variable conversion
-        #norm = np.sqrt(np.sum(np.square(z_layer), axis=1, keepdims=True)) + 1e-5
         return F.normalize(z_layer)
 
 

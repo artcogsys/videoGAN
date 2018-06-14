@@ -15,17 +15,17 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 import chainer
+import logging
 
 
 class FrameReader(chainer.dataset.DatasetMixin):
-    """
-    Every FrameReader uses an index file (e.g. job-list.txt) with directory locations to videos. Videos are assumed to
-    be stored asvertically stacked frames for every second of video. The number of frames and frame sizes are then
-    reshaped to equal sizes. A video of 16 seconds would then be of size:
-            [16, 3 (RGB), frame_size, frame_size, n_frames].
+    """ Every FrameReader uses an index file (e.g. job-list.txt) with directory locations to videos. Videos are assumed
+    to be stored asvertically stacked frames for every second of video. The number of frames and frame sizes are then
+    reshaped to equal sizes. A video of 16 seconds would then be of size: [16, 3 (RGB), frame_size, frame_size, n_frames]
     Mini-batches for training are obtained by a :class:`~chainer.iterators.MutliprocessIterator, that calls
-    :func:`~FrameReader.get_example()` with a given batch size
+    :func:`~FrameReader.get_example()` n-times for a given batch size
     """
+
     def __init__(self, root_dir, index_file, n_frames=32, frame_size=64, ext='.jpg'):
         """
         :param root_dir: Base directory where all videos are stored in sub-directories. contains index-file
@@ -39,26 +39,29 @@ class FrameReader(chainer.dataset.DatasetMixin):
         self.ext = ext
         self.n_frames = n_frames
         self.frame_size = frame_size
+        self.logger = logging.getLogger('main.framereader')
         self.content, self.data_size = self.__get_paths()
 
-    def __len__(self):
-        return self.data_size
-
     def get_example(self, idx):
-        """ Returns a preprocessed example from the path directory"""
+        """ Returns a preprocessed example from the path directory. If an exception occurs and the preprocess fails,
+        report that exception and fetch recursively a random new sample """
         if idx > self.data_size:
             raise IndexError('Index out of range. Not able to retrieve example')
 
         try:
             batch = cv2.imread(self.content[idx])
             batch = self.__preprocess_vid(batch)
+
         except ValueError:
-            # Take a random sample from dataset if preprocessing failed
-            print('Could not preprocess {}. Take another random sample from dataset'.format(self.content[idx]))
+            self.logger.error('Could not preprocess {}. Take another random sample from set'.format(self.content[idx]))
             return self.get_example(np.random.randint(0, self.data_size))
+
         else:
             return batch
 
+    def __len__(self):
+        """ Get datasize to set maximum indexing for iterator """
+        return self.data_size
 
     def __get_paths(self):
         """ Make a directory list from text file to read all files in directory with given :attr:`~extension`,
@@ -66,9 +69,9 @@ class FrameReader(chainer.dataset.DatasetMixin):
         with open(os.path.join(self.root_dir, self.index_file)) as f:
             paths = f.readlines()
 
-        # Get all path from index file and save all file path in its subdirs
+        # Get all path from index file and save all file paths entailed in its subdirectory
         all_paths = []
-        for path in tqdm(paths):
+        for path in tqdm(paths, file=self.logger.parent.handlers[0].stream):
             if path.strip():  # Ignore empty lines from filereader
                 file_path = os.path.join(path.strip(), ('*' + self.ext))
                 all_paths.extend(glob.glob(file_path))

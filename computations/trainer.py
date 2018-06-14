@@ -5,7 +5,7 @@ __status__: Development
 __date__: 03-06-2018
 
 This file defines the training process of the Generative Adversarial Network and extracts relevant information of
-computations
+computations for Saving using the built-in :class:`~chainer.training.Trainer`
 """
 
 import chainer
@@ -13,13 +13,15 @@ import imageio
 import os
 import numpy as np
 from chainer.training import extensions
+import logging
 
 
 class GANTrainer(chainer.training.Trainer):
-    """ A GANTrainer is initialized with a :class:`~chainer.training.updater.StandardUpdater' and the corresponding
-    loss functions and update rules are used by the trainer. The trainer writes reports at specific iteration intervals
-    of the state of GAN training. Every couple of iterations, the trainer creates a video from the learned
-    representation of the trainer, to obtain visual feedback of convergence """
+    """ A GANTrainer is initialized with a :class:`~chainer.training.updater.StandardUpdater' and calls the
+    :func:`~StandardUpdater.updater_core() to calculate loss for the generator and discriminator, which is then used by
+    :class:`~chainer.optimizers.Adam` for optimization. The trainer writes a report at specific iteration intervals for
+    to to obtain visual feedback of convergence. Every couple of iterations, the trainer creates a video (.gif) from the
+    learned representation of the generator """
 
     def __init__(self, updater, epochs=1000, **kwargs):
         """
@@ -33,6 +35,7 @@ class GANTrainer(chainer.training.Trainer):
         self._disp_interval = (kwargs.pop('disp_interval', 1), 'iteration')
         self._snap_interval = (kwargs.pop('snap_interval', 1), 'iteration')
         self._out_dir = kwargs.pop('out_dir', '')
+        self.log_stream = logging.getLogger('main').handlers[0].stream # STDOUT if no file specified
         super(GANTrainer, self).__init__(updater, stop_trigger=self.epochs, out=self._out_dir)
 
     def write_report(self):
@@ -46,12 +49,12 @@ class GANTrainer(chainer.training.Trainer):
                     trigger=self._snap_interval)
         self.extend(extensions.snapshot_object(discriminator, 'dis_iter_{.updater.iteration}.npz'),
                     trigger=self._snap_interval)
-        self.extend(extensions.LogReport(trigger=self._disp_interval, log_name='log'))
+        self.extend(extensions.LogReport(trigger=self._disp_interval, log_name=self.log_stream.name))
 
         # Log performances and error during training
-        self.extend(extensions.PrintReport(['epoch', 'iteration', 'gen-opt/loss', 'disc-opt/loss', ]),
+        self.extend(extensions.PrintReport(['epoch', 'iteration', 'gen-opt/loss', 'disc-opt/loss'], out=self.log_stream),
                     trigger=self._disp_interval)
-        self.extend(extensions.ProgressBar(update_interval=self._disp_interval[0]))
+        self.extend(extensions.ProgressBar(update_interval=self._disp_interval[0], out=self.log_stream))
 
         # Every plot_interval, generate a new video and save
         self.extend(self.__generate_training_video(generator),trigger=self._plot_interval)

@@ -35,6 +35,7 @@ class Config(object):
             params['Saving']['disp_interval'] = self.parser.getint('SAVING', 'disp_interval')
             params['Saving']['plot_interval'] = self.parser.getint('SAVING', 'plot_interval')
             params['Saving']['out_dir'] = self.parser.get('SAVING', 'out_dir')
+            params['Saving']['log_file'] = self.parser.get('SAVING', 'log_file')
 
             params['Adam'] = {}
             params['Adam']['learning_rate'] = self.parser.getfloat('ADAM', 'learning_rate')
