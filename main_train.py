@@ -84,13 +84,13 @@ def create_optimizer(model, learning_rate=.0001, beta1=.9, beta2=.99):
     return opt
 
 
-def build_logger(log_file='None'):
+def build_logger(log_file=None):
     """ Create a logger that stores computation information for different classes with traceback and print its output
     either to STODU or a given log-file"""
     logger = logging.getLogger('main')
     logger.setLevel(logging.INFO)
 
-    if not eval(log_file):
+    if not log_file:
         fh = logging.StreamHandler()
     else:
         fh = logging.FileHandler(log_file)
