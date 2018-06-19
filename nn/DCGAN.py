@@ -110,14 +110,15 @@ class Generator(VideoGAN):
     def __init__(self, ch = 512, **kwargs):
         self.ch = ch
         super(Generator, self).__init__(**kwargs)
-        self.w = chainer.initializers.HeNormal(self._weight_scale)
         self._up_sample_dim = tuple([ch, 4, 4, 2])
+        self._out_size = self.xp.prod(self._up_sample_dim)
+        self.w = chainer.initializers.HeNormal(self._weight_scale)
 
         with self.init_scope():
 
             # Linear Block. Linearly up sample latent space to first hidden layer in four-dimensional space producing
             # a feature space of size (512, 4, 4, 2).
-            self.linear1 = L.Linear(self._latent_dim, np.prod(self._up_sample_dim), initialW = self.w)
+            self.linear1 = L.Linear(self._latent_dim, self._out_size, initialW = self.w)
 
             # Convolutions. Perform a series of four fractionally-strided convolutions which map to 256,128,64,3
             # feature channels, producing of video of size (64,64,32,3)
@@ -127,7 +128,7 @@ class Generator(VideoGAN):
             self.deconv4 = convolution3d(ch // 8, 3, weights = self.w, direction = 'backward', pad=1)
 
             # Batch normalizations for all layers except last one
-            self.batch_norm1 = L.BatchNormalization(np.prod(self._up_sample_dim))
+            self.batch_norm1 = L.BatchNormalization(self._out_size)
             self.batch_norm2 = L.BatchNormalization(ch // 2)
             self.batch_norm3 = L.BatchNormalization(ch // 4)
             self.batch_norm4 = L.BatchNormalization(ch // 8)
