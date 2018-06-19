@@ -56,7 +56,7 @@ def main():
     input_pipeline = framereader.FrameReader(ROOT_DIR, INDEX_DIR, n_frames=N_FRAMES, frame_size=FRAME_SIZE)
 
     with chainer.using_config('train', True):
-        # Iterator takes an :class:datastream.FrameReader with :func:`~FrameReader.get_example() implementation as
+        # Iterator takes an :class:`~datastream.FrameReader` with :func:`~FrameReader.get_example() implementation as
         # primary argument. Batches are then retrieved by calling get_example() repetitively and sent to GPU by
         # :class:`~computations.GANUpdater', on which the iterator acts for training
         train_data_iter = chainer.iterators.MultiprocessIterator(input_pipeline, batch_size=BATCH_SIZE, repeat=True,
