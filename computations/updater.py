@@ -47,7 +47,6 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         # Get all models from inherited from superclass after passing at initialization
         generator_opt = self.get_optimizer('gen-opt')
         discriminator_opt = self.get_optimizer('disc-opt')
-        xp = self._generator.xp
 
         videos_true = self.get_iterator('main').next()
 
@@ -71,11 +70,11 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
             # the critic network.
             gradient_penalty = self._gradient_penalty(self._discriminator, videos_true, videos_fake)
 
-            # Update the discriminator and generator with the defined loss functions
-            if i == 0:
-                generator_opt.update(self.generator_loss, self._generator, eval_fake)
-
+            # Update the discriminator and generator (at last) with the defined loss functions
             discriminator_opt.update(self.discriminator_loss, self._discriminator, eval_true, eval_fake, gradient_penalty)
+
+            if i == (self._critic_iter - 1):
+                generator_opt.update(self.generator_loss, self._generator, eval_fake)
 
     def generator_loss(self, generator, eval_fake):
         # The goal of the generator is to maximize the mean loss
