@@ -14,20 +14,7 @@ For an introduction, it is referred to:
 import chainer
 import chainer.functions as F
 import chainer.links as L
-import numpy as np
-
-
-def convolution3d(in_channel, out_channel, weights, k_size=(4,4,4), stride=(2,2,2), pad=1, direction='forward'):
-    """ Convolutions - A convolutional block consists of: (n_dim, in_channel, out_channel, ksize, stride, pad).
-    n_dim is set to 3 for 3D videos. Depending on the direction, each convolution propagates from the dimension of
-    the input channel to the output channel"""
-    if direction == 'forward':
-        return L.ConvolutionND(3, in_channel, out_channel, k_size, stride, pad=pad, initialW=weights)
-    elif direction == 'backward':
-        return L.DeconvolutionND(3, in_channel, out_channel, k_size, stride, pad=pad, initialW=weights)
-    else:
-        raise NameError('Wrong direction specified, please choose between {forward, backward}')
-
+from chainer import cuda
 
 class VideoGAN(chainer.Chain):
     """ Superclass that holds shared attributes and parameters for the Discriminator and Generator """
@@ -55,6 +42,37 @@ class VideoGAN(chainer.Chain):
         """ Getter method for number of frames"""
         return self._n_frames
 
+    def convolution3d(self, in_channel, out_channel, weights, k_size=(4, 4, 4), stride=(2, 2, 2), pad=1, direction='forward'):
+        """ Convolutions - A convolutional block consists of: (n_dim, in_channel, out_channel, ksize, stride, pad).
+        n_dim is set to 3 for 3D videos. Depending on the direction, each convolution propagates from the dimension of
+        the input channel to the output channel"""
+
+        xp = self.xp
+
+        def __init_weights(in_dim, out_dim):
+
+            def uniform(std_dev, size):
+                return xp.random.uniform(low=-std_dev * np.sqrt(3), high=std_dev * np.sqrt(3), size=size).astype(
+                    'float32')
+
+            fan_in = in_dim * xp.prod(k_size)
+            fan_out = (out_channel * xp.prod(k_size)) / (xp.prod(stride))
+
+            filters_std = xp.sqrt(4. / (fan_in + fan_out))
+
+            filter_values = uniform(filters_std, (out_dim, in_dim, k_size[0], k_size[1], k_size[2]))
+
+            return filter_values
+
+        if direction == 'forward':
+            weights = __init_weights(in_channel, out_channel)
+            return L.ConvolutionND(3, in_channel, out_channel, k_size, stride, pad=pad, initialW=weights)
+        elif direction == 'backward':
+            weights = __init_weights(out_channel, in_channel)
+            return L.DeconvolutionND(3, in_channel, out_channel, k_size, stride, pad=pad, initialW=weights)
+        else:
+            raise NameError('Wrong direction specified, please choose between {forward, backward}')
+
 
 class Discriminator(VideoGAN):
     """ The discriminator network consists of five convolutional layers. The first convolutional layer has three input
@@ -78,13 +96,13 @@ class Discriminator(VideoGAN):
 
             # Convolutions. A kernel size of 4, stride 2 and pad 1 is used for forward propagation. The padding is
             # required to fit dimensionality. Propagate from 64 to 128 to 256 to 512 channels.
-            self.conv1 = convolution3d(3, ch, self.w)
-            self.conv2 = convolution3d(ch, ch * 2, self.w)
-            self.conv3 = convolution3d(ch * 2, ch * 4, self.w)
-            self.conv4 = convolution3d(ch * 4, ch * 8, self.w)
+            self.conv1 = self.convolution3d(3, ch, self.w)
+            self.conv2 = self.convolution3d(ch, ch * 2, self.w)
+            self.conv3 = self.convolution3d(ch * 2, ch * 4, self.w)
+            self.conv4 = self.convolution3d(ch * 4, ch * 8, self.w)
 
             # Convolute from 4x4x2 to 1x1x1 tensor in the last layer by changing the ksize and removing the padding
-            self.conv5 = convolution3d(ch * 8, 1, self.w, k_size=(4,4,2), pad=0)
+            self.conv5 = self.convolution3d(ch * 8, 1, self.w, k_size=(4,4,2), pad=0)
             self.linear5 = L.Linear(1, 1, initialW=self.w)
 
             self.layer_norm1 = L.LayerNormalization()
@@ -148,10 +166,10 @@ class Generator(VideoGAN):
 
             # Convolutions. Perform a series of four fractionally-strided convolutions which map to 256,128,64,3
             # feature channels, producing of video of size (64,64,32,3)
-            self.deconv1 = convolution3d(ch, ch // 2, weights = self.w, direction = 'backward', pad=1)
-            self.deconv2 = convolution3d(ch // 2, ch // 4, weights = self.w, direction = 'backward', pad=1)
-            self.deconv3 = convolution3d(ch // 4, ch // 8, weights = self.w, direction = 'backward', pad=1)
-            self.deconv4 = convolution3d(ch // 8, 3, weights = self.w, direction = 'backward', pad=1)
+            self.deconv1 = self.convolution3d(ch, ch // 2, weights = self.w, direction = 'backward', pad=1)
+            self.deconv2 = self.convolution3d(ch // 2, ch // 4, weights = self.w, direction = 'backward', pad=1)
+            self.deconv3 = self.convolution3d(ch // 4, ch // 8, weights = self.w, direction = 'backward', pad=1)
+            self.deconv4 = self.convolution3d(ch // 8, 3, weights = self.w, direction = 'backward', pad=1)
 
             # Batch normalizations for all layers except last one
             self.batch_norm1 = L.BatchNormalization(self._out_size)
