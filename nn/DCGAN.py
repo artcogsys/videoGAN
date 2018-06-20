@@ -52,7 +52,7 @@ class VideoGAN(chainer.Chain):
         def __init_weights(in_dim, out_dim):
 
             def uniform(std_dev, size):
-                return xp.random.uniform(low=-std_dev * np.sqrt(3), high=std_dev * np.sqrt(3), size=size).astype(
+                return xp.random.uniform(low=-std_dev * xp.sqrt(3), high=std_dev * xp.sqrt(3), size=size).astype(
                     'float32')
 
             fan_in = in_dim * xp.prod(k_size)
