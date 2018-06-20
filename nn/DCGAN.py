@@ -34,10 +34,10 @@ class VideoGAN(chainer.Chain):
     def __init__(self, **kwargs):
         super(VideoGAN, self).__init__()
         self._batch_size = kwargs.get('batch_size', 64)
-        self._latent_dim = kwargs.get('latent_dim', 100)
         self._n_frames = kwargs.get('n_frames', 32)
-        self._weight_scale = kwargs.get('weight_scale', .001)
         self._frame_size = kwargs.get('frame_size', 64)
+        self._latent_dim = kwargs.get('latent_dim', 100)
+        self._weight_scale = kwargs.get('weight_scale', .001)
 
     @property
     def batch_size(self):
@@ -66,7 +66,7 @@ class Discriminator(VideoGAN):
     is also omitted. See http://carlvondrick.com/tinyvideo/discriminator.png for a visualization of tensor sizes with
     increasing layer order."""
 
-    def __init__(self, ch = 64, **kwargs):
+    def __init__(self, ch=64, **kwargs):
         # Initial channel is the number of feature channels in the first convolutional layer.
         self.ch = ch
         super(Discriminator, self).__init__(**kwargs)
@@ -87,17 +87,43 @@ class Discriminator(VideoGAN):
             self.conv5 = convolution3d(ch * 8, 1, self.w, k_size=(4,4,2), pad=0)
             self.linear5 = L.Linear(1, 1, initialW=self.w)
 
+            self.layer_norm1 = L.LayerNormalization()
+            self.layer_norm2 = L.LayerNormalization()
+            self.layer_norm3 = L.LayerNormalization()
+            self.layer_norm4 = L.LayerNormalization()
+
     def __call__(self, input):
-        """ Procedure: Convolute forward from each hidden unit amd then activate (no pooling!).
+        """ Procedure: Convolute forward from each hidden unit amd then activate (no pooling!). All except the linear
+            downsampling layer have a layer normalization, that accepts inputs of shape (batch_size, unit_size) and is
+            afterwards reshaped to pro
         
         input shape: (batch size, 3(RGB), 64, 64, 32)
         return shape: (batch size, 1)
         """
-        hidden1 = F.leaky_relu(self.conv1(input))
-        hidden2 = F.leaky_relu(self.conv2(hidden1))
-        hidden3 = F.leaky_relu(self.conv3(hidden2))
-        hidden4 = F.leaky_relu(self.conv4(hidden3))
-        hidden5 = F.leaky_relu(self.conv5(hidden4))
+
+        hidden1 = self.conv1(input)
+        h1_shape = hidden1.shape
+        hidden1 = self.layer_norm1(F.reshape(hidden1, [self.batch_size, -1]))
+        hidden1 = F.leaky_relu(hidden1)
+
+        hidden2 = self.conv2(F.reshape(hidden1, h1_shape))
+        h2_shape = hidden2.shape
+        hidden2 = self.layer_norm2(F.reshape(hidden2, [self.batch_size, -1]))
+        hidden2 = F.leaky_relu(hidden2)
+
+        hidden3 = self.conv3(F.reshape(hidden2, h2_shape))
+        h3_shape = hidden3.shape
+        hidden3 = self.layer_norm3(F.reshape(hidden3, [self.batch_size, -1]))
+        hidden3 = F.leaky_relu(hidden3)
+
+        hidden4 = self.conv4(F.reshape(hidden3, h3_shape))
+        h4_shape = hidden4.shape
+        hidden4 = self.layer_norm4(F.reshape(hidden4, [self.batch_size, -1]))
+        hidden4 = F.leaky_relu(hidden4)
+
+        hidden5 = self.conv5(F.reshape(hidden4, h4_shape))
+        hidden5 = F.leaky_relu(hidden5)
+
         return self.linear5(hidden5)
 
 
@@ -107,7 +133,7 @@ class Generator(VideoGAN):
     For a visualization, please see: http://carlvondrick.com/tinyvideo/network.png.
     """
 
-    def __init__(self, ch = 512, **kwargs):
+    def __init__(self, ch=512, **kwargs):
         self.ch = ch
         super(Generator, self).__init__(**kwargs)
         self._up_sample_dim = tuple([ch, 4, 4, 2])
