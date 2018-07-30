@@ -14,6 +14,7 @@ from computations.updater import GANUpdater
 from computations.trainer import GANTrainer
 from datastream import framereader
 import logging
+import os
 
 conf_parser = cp.Config('setup.ini')
 params = conf_parser.get_params()
@@ -93,7 +94,8 @@ def build_logger(log_file=None):
     if not log_file:
         fh = logging.StreamHandler()
     else:
-        fh = logging.FileHandler(log_file)
+        fh = logging.FileHandler(log_file, mode='a+')
+        print('\nLogging information passed onto log file with name: %s' % log_file)
 
     formatter = logging.Formatter('\n%(name)s.%(levelname)s -> %(message)s')
     fh.setFormatter(formatter)

@@ -49,7 +49,7 @@ class GANTrainer(chainer.training.Trainer):
                     trigger=self._snap_interval)
         self.extend(extensions.snapshot_object(discriminator, 'dis_iter_{.updater.iteration}.npz'),
                     trigger=self._snap_interval)
-        self.extend(extensions.LogReport(trigger=self._disp_interval, log_name=self.log_stream.name))
+        self.extend(extensions.LogReport(trigger=self._disp_interval, log_name=self.log_stream.name + '_loss'))
 
         # Log performances and err^or during training
         self.extend(extensions.PrintReport(['epoch', 'iteration', 'gen-opt/loss', 'disc-opt/loss'], out=self.log_stream),
