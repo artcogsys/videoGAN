@@ -23,7 +23,7 @@ class GANTrainer(chainer.training.Trainer):
     to to obtain visual feedback of convergence. Every couple of iterations, the trainer creates a video (.gif) from the
     learned representation of the generator """
 
-    def __init__(self, updater, epochs=1000, **kwargs):
+    def __init__(self, updater, epochs=15, **kwargs):
         """
         :param updater: Custom or normal updater, as in chainer.training.StandardUpdater()
         :param epochs: number of training epochs
@@ -51,7 +51,7 @@ class GANTrainer(chainer.training.Trainer):
                     trigger=self._snap_interval)
         self.extend(extensions.LogReport(trigger=self._disp_interval, log_name=self.log_stream.name))
 
-        # Log performances and error during training
+        # Log performances and err^or during training
         self.extend(extensions.PrintReport(['epoch', 'iteration', 'gen-opt/loss', 'disc-opt/loss'], out=self.log_stream),
                     trigger=self._disp_interval)
         self.extend(extensions.ProgressBar(update_interval=self._disp_interval[0], out=self.log_stream))

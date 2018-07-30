@@ -42,6 +42,16 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         self._optimizers = kwargs.pop('optimizer')
         self.device = kwargs.pop('device')
 
+    @property
+    def generator(self):
+        """ Getter for :attr: generator for current state of training and video generation from that state """
+        return self._generator
+
+    @property
+    def discriminator(self):
+        """ Getter for :attr: discriminator to retrieve current state of training """
+        return self._discriminator
+
     def update_core(self):
 
         # Get all models from inherited from superclass after passing at initialization
@@ -54,6 +64,8 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         videos_true = Variable(self.converter(videos_true, self.device))
 
         # The Generator is updated once every set of critic iterations and the Discriminator at each iteration
+        # TODO Possible that evalutations create different results at every iteration -> Eval first and then upd. 5 times?
+        # TODO THIS IF MAYBE THE MISTAKE! -> Correct and look further afterwards. Or -> Update gen. at i == 0 ? 
         for i in range(self._critic_iter):
 
             # Feed current batch into discriminator and determine if fake or real
@@ -73,7 +85,8 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
             # Update the discriminator and generator (at last) with the defined loss functions
             discriminator_opt.update(self.discriminator_loss, self._discriminator, eval_true, eval_fake, gradient_penalty)
 
-            if i == (self._critic_iter - 1):
+            # Update generator after first iteration
+            if i == 0:
                 generator_opt.update(self.generator_loss, self._generator, eval_fake)
 
     def generator_loss(self, generator, eval_fake):
@@ -91,7 +104,7 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         return disc_loss
 
     def _gradient_penalty(self, discriminator, real_video, fake_video):
-        """ For details and backgroundm, please see the algorithm on page 4 (line 4-8) and the corresponding equation
+        """ For details and background, please see the algorithm on page 4 (line 4-8) and the corresponding equation
             (3) of the gradient penalty on: https://arxiv.org/abs/1704.00028. The loss of the discriminator network
             enforces the Lipschitz constraint on its loss, by interpolating a real and a fake video, feeding it as
             input into the discriminator network and thereby restricitng the gradient norm of the critics output
@@ -120,12 +133,3 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
 
         return gradient_penalty
 
-    @property
-    def generator(self):
-        """ Getter for :attr:generator for current state of training and video generation from that state """
-        return self._generator
-
-    @property
-    def discriminator(self):
-        """ Getter for :attr: discriminator to retrieve current state of training """
-        return self._discriminator

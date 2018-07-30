@@ -14,7 +14,7 @@ For an introduction, it is referred to:
 import chainer
 import chainer.functions as F
 import chainer.links as L
-from chainer import cuda
+
 
 class VideoGAN(chainer.Chain):
     """ Superclass that holds shared attributes and parameters for the Discriminator and Generator """
