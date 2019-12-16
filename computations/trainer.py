@@ -4,7 +4,6 @@ __email__: fmahner@uos.de
 __status__: Development
 __date__: 03-06-2018
 """
-
 from chainer.training import extension, extensions
 from chainer.training import trigger as trigger_module
 from chainer import serializers
@@ -18,11 +17,7 @@ import matplotlib.pyplot as plt
 class GANTrainer(chainer.training.Trainer):
 
     def __init__(self, updater, epochs=15, plot_interval=1, disp_interval=1, snap_interval=1, out_dir='', n_frames=32):
-        """
-        :param updater: Custom or normal updater, as in chainer.training.StandardUpdater()
-        :param epochs: number of training epochs
-        :param kwargs: plotting specifics, including saving intervals and directories
-        """
+
         self.updater = updater
         self.epochs = (epochs, 'epoch')
         self.plot_interval = (plot_interval, 'iteration')
@@ -94,11 +89,9 @@ def generate_training_video(generator, out_dir='/.', filename='abc.gif', num_vid
         for i in range(num_videos):
             with imageio.get_writer(filename, mode='I') as writer:
                     for j in range(n_frames):
-                        #frame = vid[i, :, :, :, j].reshape(frame_size, frame_size, 3)
                         frame = vid[i,:,:,:,j]
-                        frame = np.transpose(frame)
+                        frame = np.transpose(frame) # Tranpose image from (3 x nframes x nframes) to (nframes x nframes x 3)
 
                         # Interpolate back to uint-8 format
                         frame = np.interp(frame, (frame.min(), frame.max()), (0, 255)).astype(np.uint8)
                         writer.append_data(frame)
-

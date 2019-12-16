@@ -33,11 +33,11 @@ def main():
         logger.info('Discriminator and Generator are passed onto GPU')
 
     logger.info('Start Loading Data from {0} and {1} ...'.format(params.root_dir, params.index_dir))
+
     input_pipeline = framereader.FrameReader(params.root_dir,
                                              params.index_dir,
                                              n_frames=params.n_frames,
                                              frame_size=params.frame_size)
-    #input_pipeline = Framer()
 
     with chainer.using_config('train', True):
         train_data_iter = chainer.iterators.SerialIterator(input_pipeline, params.batch_size)
@@ -97,4 +97,3 @@ def build_logger(log_file=None):
 
 if __name__ == '__main__':
     main()
-

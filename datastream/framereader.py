@@ -110,4 +110,3 @@ class FrameReader(chainer.dataset.DatasetMixin):
 
 
         return video
-

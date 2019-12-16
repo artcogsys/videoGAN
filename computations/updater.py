@@ -9,11 +9,7 @@ For details, please see:
 
 https://arxiv.org/abs/1701.07875 (original paper by Arjovski)
 https://arxiv.org/abs/1704.00028 (follow up paper)
-
-For mathematical explanations and loss functions for GANs in general and WGANs, please see this excellent summary:
-https://lilianweng.github.io/lil-log/2017/08/20/from-GAN-to-WGAN.html
 """
-
 import chainer
 import chainer.functions as F
 from chainer import Variable
@@ -118,4 +114,3 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         chainer.report({'gp' : gradient_penalty})
 
         return gradient_penalty
-
