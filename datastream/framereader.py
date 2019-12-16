@@ -107,6 +107,4 @@ class FrameReader(chainer.dataset.DatasetMixin):
         # Recale to -1 / 1 for tanh activation
         video = xp.interp(video, (video.min(), video.max()), (-1, +1)).astype(xp.float32)
 
-
-
         return video

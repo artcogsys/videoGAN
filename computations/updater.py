@@ -30,7 +30,6 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
 
     def update_core(self):
 
-        # Get all models from inherited from superclass after passing at initialization
         generator_opt = self.get_optimizer('gen-opt')
         discriminator_opt = self.get_optimizer('disc-opt')
 
@@ -39,8 +38,6 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
 
             # Sample a new point from the real distribution every critic update
             videos_true = self.get_iterator('main').next()
-
-            # Wrap training batch with chainer.variable and send to gpu using built-in converter function from updater
             videos_true = Variable(self.converter(videos_true, self.device))
 
             # Feed current batch into discriminator and determine if fake or real
@@ -88,10 +85,10 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
             with regard to its input"""
 
         def l2norm(vec):
-            # Calculate the l2norm (or euclidean norm), which is the (absolute) square root of squared summed inputs
+            # Calculate the l2norm (or euclidean norm)
             if vec.ndim > 1:
-                # Add epsilon to avoid problems of square root derivative close to zero. Since f(x + ε) = f(x),
-                # it follows that f(x + ε) - f(x) = 0
+                # Add epsilon to avoid problems of square root derivative close to zero. Since f(x + ε) = f(x)
+                # => f(x + ε) - f(x) = 0
                 vec = F.sqrt(F.sum(vec * vec, axis=(1,2,3,4)) + 1e-12)
             return abs(vec)
 
