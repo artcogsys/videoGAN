@@ -12,45 +12,25 @@ https://arxiv.org/abs/1704.00028 (follow up paper)
 
 For mathematical explanations and loss functions for GANs in general and WGANs, please see this excellent summary:
 https://lilianweng.github.io/lil-log/2017/08/20/from-GAN-to-WGAN.html
-
 """
+
 import chainer
 import chainer.functions as F
 from chainer import Variable
-
+import numpy as np
 
 class GANUpdater(chainer.training.updaters.StandardUpdater):
-    """
-    Every GANUpdater consists of a :class:`~chainer.iterators.MultiProcessIterator` that continously feeds batches for
-    training and implements a loss function to update the weights. An instance of :class:`~chainer.training.Trainer` is
-    connected to :class:`~computations.GANUpdater`, which calls :func:`~computations.GANUpdater.update_core() to
-    calculate the loss for the Generator and Discriminator. This loss is passed onto any optimization approach for both
-    networks and reported to the Trainer.
-    """
 
-    def __init__(self, **kwargs):
-        """
-        :param kwargs: Every Updater requires a model to be trained, an iterator for batches and an optimizer for the
-                       loss function
-        """
-        self._generator, self._discriminator = kwargs.pop('models')
-        self._critic_iter = kwargs.pop('critic_iter', 5)
-        self._penalty_coeff = kwargs.pop('penalty_coeff', 10)
-        self._batch_size = kwargs.pop('batch_size')
-        super(GANUpdater, self).__init__(**kwargs)#, converter=chainer.dataset.convert.ConcatWithAsyncTransfer)
-        self._iterator = kwargs.pop('iterator')
-        self._optimizers = kwargs.pop('optimizer')
-        self.device = kwargs.pop('device')
-
-    @property
-    def generator(self):
-        """ Getter for :attr: generator for current state of training and video generation from that state """
-        return self._generator
-
-    @property
-    def discriminator(self):
-        """ Getter for :attr: discriminator to retrieve current state of training """
-        return self._discriminator
+    def __init__(self, models, iterator, optimizer, batch_size, device=0, penalty_coeff=10, critic_iter=5):
+        super(GANUpdater, self).__init__(iterator, optimizer)
+        self.generator, self.discriminator = models
+        self.critic_iter = critic_iter
+        self.penalty_coeff = penalty_coeff
+        self.batch_size = batch_size
+        self.iterator = iterator
+        self.optimizers = optimizer
+        self.device = device
+        self.loss_history = {'gen': [], 'disc': []}
 
     def update_core(self):
 
@@ -58,48 +38,49 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         generator_opt = self.get_optimizer('gen-opt')
         discriminator_opt = self.get_optimizer('disc-opt')
 
-        videos_true = self.get_iterator('main').next()
-
-        # Wrap training batch with chainer.variable and send to gpu using built-in converter function from updater
-        videos_true = Variable(self.converter(videos_true, self.device))
-
         # The Generator is updated once every set of critic iterations and the Discriminator at each iteration
-        # TODO Possible that evalutations create different results at every iteration -> Eval first and then upd. 5 times?
-        # TODO THIS IF MAYBE THE MISTAKE! -> Correct and look further afterwards. Or -> Update gen. at i == 0 ? 
-        for i in range(self._critic_iter):
+        for i in range(self.critic_iter):
+
+            # Sample a new point from the real distribution every critic update
+            videos_true = self.get_iterator('main').next()
+
+            # Wrap training batch with chainer.variable and send to gpu using built-in converter function from updater
+            videos_true = Variable(self.converter(videos_true, self.device))
 
             # Feed current batch into discriminator and determine if fake or real
-            eval_true = self._discriminator(videos_true)
+            eval_true = self.discriminator(videos_true)
 
             # Feed 100-dimensional z-space into generator and produce a video
-            latent_z = self._generator.sample_hidden()
-            videos_fake = self._generator(latent_z)
+            latent_z = self.generator.sample_hidden(self.batch_size)
+            videos_fake = self.generator(latent_z)
 
             # Feed generated image into discriminator and determine if fake or real
-            eval_fake = self._discriminator(videos_fake)
+            eval_fake = self.discriminator(videos_fake)
 
-            # Calculate the gradient penalty added to the loss function by enforcing the Lipschitz constraint on
-            # the critic network.
-            gradient_penalty = self._gradient_penalty(self._discriminator, videos_true, videos_fake)
+            # Calculate the gradient penalty added to the loss function by enforcing the Lipschitz constraint on the critic network.
+            gradient_penalty = self._gradient_penalty(self.discriminator, videos_true, videos_fake)
 
             # Update the discriminator and generator (at last) with the defined loss functions
-            discriminator_opt.update(self.discriminator_loss, self._discriminator, eval_true, eval_fake, gradient_penalty)
+            discriminator_opt.update(self.discriminator_loss, self.discriminator, eval_true, eval_fake, gradient_penalty)
 
-            # Update generator after first iteration
-            if i == 0:
-                generator_opt.update(self.generator_loss, self._generator, eval_fake)
+        # Update generator at last
+        latent_z = self.generator.sample_hidden(self.batch_size)
+        videos_fake = self.generator(latent_z)
+        eval_fake = self.discriminator(videos_fake)
+        generator_opt.update(self.generator_loss, self.generator, eval_fake)
+
 
     def generator_loss(self, generator, eval_fake):
-        # The goal of the generator is to maximize the mean loss
-        # F.average(x) equals F.sum(x) / batch_size
-        gen_loss = F.average(-eval_fake)
+        # The goal of the generator is to minimize the mean loss
+        gen_loss = - F.sum(eval_fake) / self.batch_size
         chainer.report({'loss': gen_loss}, generator)
         return gen_loss
 
     def discriminator_loss(self, discriminator, eval_true, eval_fake, gradient_penalty):
         # Calculate the discriminator loss by enforcing the gradient penalty on the summed difference of real and fake
-        # videos -> It holds that F.sum(x+y) / batch_size = F.average(x) + F.average(y)
-        disc_loss = F.sum(eval_fake - eval_true + gradient_penalty) / discriminator.batch_size
+        disc_loss = F.sum(eval_fake) / self.batch_size
+        disc_loss += F.sum(-eval_true) / self.batch_size
+        disc_loss += gradient_penalty
         chainer.report({'loss': disc_loss}, discriminator)
         return disc_loss
 
@@ -119,9 +100,9 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
             return abs(vec)
 
         # Interpolation creates new data points within range of discrete data points
-        xp = self._generator.xp
-        epsilon = xp.random.uniform(low=0, high=1, size=self._batch_size).astype(xp.float32)[:, None, None, None, None]
-        interpolates = (1. - epsilon) * real_video + epsilon * fake_video
+        xp = self.generator.xp
+        epsilon = xp.random.uniform(low=0, high=1, size=(self.batch_size,1,1,1,1)).astype(xp.float32)
+        interpolates = (1. - epsilon) * fake_video + epsilon * real_video
 
         # Feed interpolated sample into discriminator and compute gradients
         eval_interpolate = discriminator(interpolates)
@@ -129,7 +110,12 @@ class GANUpdater(chainer.training.updaters.StandardUpdater):
         slopes = l2norm(gradients)
 
         # Penalty coefficient is a hyperparameter, where 10 was found to be working best (eq. 7)
-        gradient_penalty = (self._penalty_coeff * (slopes - 1.) ** 2)[:, xp.newaxis]
+        gradient_penalty = (self.penalty_coeff * (slopes - 1.) ** 2)[:, xp.newaxis]
+
+        # Expected gradient penalty
+        gradient_penalty = F.sum(gradient_penalty) / self.batch_size
+
+        chainer.report({'gp' : gradient_penalty})
 
         return gradient_penalty
 

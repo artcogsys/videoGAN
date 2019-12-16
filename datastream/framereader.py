@@ -7,16 +7,14 @@ __date__: 30-05-2018
 This file creates an input pipeline to load the videos from a given root-directory using the built-in dataset
 abstraction :class:`~chainer.dataset.DatasetMixin`
 """
-
 from chainer import cuda
+from PIL import Image
 import glob
 import os
-import cv2
 import numpy as np
 from tqdm import tqdm
 import chainer
 import logging
-
 
 class FrameReader(chainer.dataset.DatasetMixin):
     """ Every FrameReader uses an index file (e.g. job-list.txt) with directory locations to videos. Videos are assumed
@@ -41,6 +39,7 @@ class FrameReader(chainer.dataset.DatasetMixin):
         self.frame_size = frame_size
         self.logger = logging.getLogger('main.framereader')
         self.content, self.data_size = self.__get_paths()
+        assert self.data_size > 0, 'Dataset is empty. Have a look at the input paths.'
 
     def get_example(self, idx):
         """ Returns a preprocessed example from the path directory. If an exception occurs and the preprocess fails,
@@ -49,7 +48,7 @@ class FrameReader(chainer.dataset.DatasetMixin):
             raise IndexError('Index out of range. Not able to retrieve example')
 
         try:
-            batch = cv2.imread(self.content[idx])
+            batch = Image.open(self.content[idx])
             batch = self.__preprocess_vid(batch)
 
         except ValueError:
@@ -82,26 +81,33 @@ class FrameReader(chainer.dataset.DatasetMixin):
 
         xp = cuda.get_array_module()
 
-        frame_size = self.frame_size
-        n_frames = self.n_frames
-
         # Rescale the image to fit the actual frame size. A video of e.g. of original size {128 x 128} is then
         # reduced to {frame_size x frame_size}
-        r = frame_size / video.shape[1] # Scaling factor
-        dim = (frame_size, (int(video.shape[0] * r)))
-        video = cv2.resize(video, dim)
-        frames_video = video.shape[0] // frame_size
-        video = xp.reshape(video, [3, 64, 64, frames_video])
+        r = self.frame_size / video.size[0] # Scaling factor
+        dim = (self.frame_size, (int(video.size[1] * r)))
+
+        # We want to resize (not center crop) and thereby maintain the aspect ratio!
+        # !Changing to numpy array also changes dimension order!
+        video = xp.array(video.resize(dim))
+        frames_video = video.shape[0] // self.frame_size # determine the actual number of frames in the vid
+
+
+        video = video.reshape((frames_video, self.frame_size, self.frame_size, 3))
+        video = xp.transpose(video) # make last dimension first
 
         # Either take the first n_frames, or if the frame length is too short, create repeated copies of last frame
         # and append
-        if frames_video >= n_frames:
-            video = video[:, :, :, 0 : n_frames]
+        if frames_video >= self.n_frames:
+            video = video[:, :, :, 0 : self.n_frames]
         else:
-            last = xp.tile(video[-1], (1, 1, 1, n_frames - frames_video))
-            video = xp.concatenate((video, last))
+            last_frame = video[:,:,:,-1]
+            last = xp.repeat(last_frame[:,:,:,None], self.n_frames - frames_video, axis=3)
+            video = xp.concatenate((video, last), axis=3)
 
-        # Rescale video from -1 to 1 due to tanh activation function of generator
+        # Recale to -1 / 1 for tanh activation
         video = xp.interp(video, (video.min(), video.max()), (-1, +1)).astype(xp.float32)
 
+
+
         return video
+
