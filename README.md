@@ -1,9 +1,8 @@
 # Generating complex natural videos with Wasserstein GANs
 
 This repository uses a Wasserstein GAN with gradient penalty [(arxiv.org/pdf/1704.00028.pdf)](https://arxiv.org/pdf/1704.00028.pdf) to learn the latent space dynamics of short video clips. It is trained on the full [YouTube Bounding Box](https://research.google.com/youtube-bb/) dataset. The backgrounds are dynamic and the entire video stream is mostly kept as read-in, not separating foreground and background streams. Implemented in [Chainer](https://docs.chainer.org/en/stable/index.html). Here are some examples of the output generations:
-
-<div class="row">
 <center>
+<div class="row">
   <div class="column">
     <img src="./gifs/gif_0.gif" width="100" height="100" />
     <img src="./gifs/gif_1.gif" width="100" height="100" />
@@ -44,8 +43,8 @@ This repository uses a Wasserstein GAN with gradient penalty [(arxiv.org/pdf/170
     <img src="./gifs/gif_28.gif" width="100" height="100" />
     <img src="./gifs/gif_29.gif" width="100" height="100" />
     </div>
-</center>
 </div>
+</center>
 
 ## File overview of this repository
 
