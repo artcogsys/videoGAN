@@ -1,50 +1,101 @@
 # Generating complex natural videos with Wasserstein GANs
 
 This repository uses a Wasserstein GAN with gradient penalty [(arxiv.org/pdf/1704.00028.pdf)](https://arxiv.org/pdf/1704.00028.pdf) to learn the latent space dynamics of short video clips. It is trained on the full [YouTube Bounding Box](https://research.google.com/youtube-bb/) dataset. The backgrounds are dynamic and the entire video stream is mostly kept as read-in, not separating foreground and background streams. Implemented in [Chainer](https://docs.chainer.org/en/stable/index.html). Here are some examples of the output generations:
+
+### Cats
+
 <center>
 <div class="row">
   <div class="column">
-    <img src="./gifs/gif_0.gif" width="100" height="100" />
-    <img src="./gifs/gif_1.gif" width="100" height="100" />
-    <img src="./gifs/gif_2.gif" width="100" height="100" />
-    <img src="./gifs/gif_3.gif" width="100" height="100" />
-    <img src="./gifs/gif_4.gif" width="100" height="100" />
-    <img src="./gifs/gif_5.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_0.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_1.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_2.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_3.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_4.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_5.gif" width="100" height="100" />
   </div>
   <div class="column">
-    <img src="./gifs/gif_6.gif" width="100" height="100" />
-    <img src="./gifs/gif_7.gif" width="100" height="100" />
-    <img src="./gifs/gif_8.gif" width="100" height="100" />
-    <img src="./gifs/gif_9.gif" width="100" height="100" />
-    <img src="./gifs/gif_10.gif" width="100" height="100" />
-    <img src="./gifs/gif_11.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_6.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_7.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_8.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_9.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_10.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_11.gif" width="100" height="100" />
     </div>
   <div class="column">
-    <img src="./gifs/gif_12.gif" width="100" height="100" />
-    <img src="./gifs/gif_13.gif" width="100" height="100" />
-    <img src="./gifs/gif_14.gif" width="100" height="100" />
-    <img src="./gifs/gif_15.gif" width="100" height="100" />
-    <img src="./gifs/gif_16.gif" width="100" height="100" />
-    <img src="./gifs/gif_17.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_12.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_13.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_14.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_15.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_16.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_17.gif" width="100" height="100" />
     </div>
   <div class="column">
-    <img src="./gifs/gif_18.gif" width="100" height="100" />
-    <img src="./gifs/gif_19.gif" width="100" height="100" />
-    <img src="./gifs/gif_20.gif" width="100" height="100" />
-    <img src="./gifs/gif_21.gif" width="100" height="100" />
-    <img src="./gifs/gif_22.gif" width="100" height="100" />
-    <img src="./gifs/gif_23.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_18.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_19.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_20.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_21.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_22.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_23.gif" width="100" height="100" />
     </div>
   <div class="column">
-    <img src="./gifs/gif_24.gif" width="100" height="100" />
-    <img src="./gifs/gif_25.gif" width="100" height="100" />
-    <img src="./gifs/gif_26.gif" width="100" height="100" />
-    <img src="./gifs/gif_27.gif" width="100" height="100" />
-    <img src="./gifs/gif_28.gif" width="100" height="100" />
-    <img src="./gifs/gif_29.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_24.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_25.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_26.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_27.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_28.gif" width="100" height="100" />
+    <img src="./gifs_cats/gif_29.gif" width="100" height="100" />
     </div>
 </div>
 </center>
+
+### Trucks
+
+<center>
+<div class="row">
+  <div class="column">
+    <img src="./gifs_trucks/gif_0.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_1.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_2.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_3.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_4.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_5.gif" width="100" height="100" />
+  </div>
+  <div class="column">
+    <img src="./gifs_trucks/gif_6.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_7.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_8.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_9.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_10.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_11.gif" width="100" height="100" />
+    </div>
+  <div class="column">
+    <img src="./gifs_trucks/gif_12.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_13.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_14.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_15.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_16.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_17.gif" width="100" height="100" />
+    </div>
+  <div class="column">
+    <img src="./gifs_trucks/gif_18.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_19.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_20.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_21.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_22.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_23.gif" width="100" height="100" />
+    </div>
+  <div class="column">
+    <img src="./gifs_trucks/gif_24.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_25.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_26.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_27.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_28.gif" width="100" height="100" />
+    <img src="./gifs_trucks/gif_29.gif" width="100" height="100" />
+    </div>
+</div>
+</center>
+
 
 ## File overview of this repository
 
